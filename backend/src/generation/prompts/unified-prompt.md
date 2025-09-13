@@ -56,18 +56,18 @@ Generate {{count}} extensions that:
 ## OUTPUT INSTRUCTIONS
 
 You MUST respond with a JSON array containing EXACTLY {{count}} strings.
-Each string should be a complete idea (2-4 sentences).
+Each string should be a complete idea (2-3 sentences maximum).
 
 Example format:
 [
-  "First complete idea here with 2-4 sentences of detail",
-  "Second complete idea here with 2-4 sentences of detail"{{#if isThree}},
-  "Third complete idea here with 2-4 sentences of detail"{{/if}}{{#if isFour}},
-  "Third complete idea here with 2-4 sentences of detail",
-  "Fourth complete idea here with 2-4 sentences of detail"{{/if}}{{#if isFive}},
-  "Third complete idea here with 2-4 sentences of detail",
-  "Fourth complete idea here with 2-4 sentences of detail",
-  "Fifth complete idea here with 2-4 sentences of detail"{{/if}}
+  "First complete idea here with 2-3 sentences of detail",
+  "Second complete idea here with 2-3 sentences of detail"{{#if isThree}},
+  "Third complete idea here with 2-3 sentences of detail"{{/if}}{{#if isFour}},
+  "Third complete idea here with 2-3 sentences of detail",
+  "Fourth complete idea here with 2-3 sentences of detail"{{/if}}{{#if isFive}},
+  "Third complete idea here with 2-3 sentences of detail",
+  "Fourth complete idea here with 2-3 sentences of detail",
+  "Fifth complete idea here with 2-3 sentences of detail"{{/if}}
 ]
 
 CRITICAL: Return ONLY the JSON array. No other text.
