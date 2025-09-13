@@ -16,8 +16,8 @@ const CONFIG = {
   // Backend URL
   baseUrl: 'http://localhost:3001',
   
-  // Choose operation: 'generate' or 'merge'
-  operation: 'merge', // 'generate' or 'merge'
+  // Choose operation: 'generate', 'merge', or 'categorize'
+  operation: 'categorize', // 'generate', 'merge', or 'categorize'
   
   // Model configuration
   modelConfig: {
@@ -57,6 +57,24 @@ const CONFIG = {
       }
     ],
     mergePrompt: 'Synthesize these four advanced onboarding features into a cohesive, enterprise-ready onboarding platform architecture. Focus on how these components work together, data flow between systems, technical implementation considerations, and expected business outcomes. Provide a 12-sentence comprehensive synthesis that could serve as an executive summary for stakeholders.'
+  },
+  
+  // For CATEGORIZE
+  categorize: {
+    nodes: [
+      {
+        id: 'cat-1',
+        content: 'Implement user authentication with OAuth2 and JWT tokens for secure login'
+      },
+      {
+        id: 'cat-2',
+        content: 'Add two-factor authentication using SMS or authenticator apps'
+      },
+      {
+        id: 'cat-3',
+        content: 'Create password reset flow with email verification'
+      }
+    ]
   }
 };
 
@@ -194,6 +212,52 @@ async function testMerge() {
   }
 }
 
+// Test categorization
+async function testCategorize() {
+  console.log('\n📂 Testing CATEGORIZE endpoint...');
+  console.log('Provider:', CONFIG.modelConfig.provider);
+  console.log('Model:', CONFIG.modelConfig.model || 'default');
+  console.log('Categorizing', CONFIG.categorize.nodes.length, 'nodes');
+  
+  const requestBody = {
+    nodes: CONFIG.categorize.nodes,
+    modelConfig: CONFIG.modelConfig
+  };
+  
+  console.log('\n📤 Sending request to:', `${CONFIG.baseUrl}/api/categorize`);
+  
+  try {
+    const response = await fetch(`${CONFIG.baseUrl}/api/categorize`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(requestBody)
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`HTTP error! status: ${response.status}, body: ${errorText}`);
+    }
+    
+    const data = await response.json();
+    
+    console.log('\n✅ Response received!\n');
+    console.log('Success:', data.success);
+    console.log('Generation time:', data.generationTime, 'ms');
+    console.log('\n📂 Category:\n');
+    console.log('Category Name:', data.category);
+    console.log('Categorized Node IDs:', data.nodeIds.join(', '));
+    
+    if (CONFIG.modelConfig.provider === 'mock') {
+      console.log('\n⚠️  Note: Using mock provider - responses are simulated');
+    }
+    
+  } catch (error) {
+    console.error('\n❌ Error:', error.message);
+  }
+}
+
 // Main execution
 async function main() {
   console.log('========================================');
@@ -219,8 +283,10 @@ async function main() {
     await testGeneration();
   } else if (CONFIG.operation === 'merge') {
     await testMerge();
+  } else if (CONFIG.operation === 'categorize') {
+    await testCategorize();
   } else {
-    console.error('❌ Invalid operation. Choose "generate" or "merge"');
+    console.error('❌ Invalid operation. Choose "generate", "merge", or "categorize"');
   }
   
   console.log('\n========================================\n');
