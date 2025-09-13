@@ -22,7 +22,6 @@ export const mergeIdeasSchema = z.object({
     metadata: z.record(z.string(), z.any()).optional()
   })).min(2, 'At least 2 nodes required').max(5),
   mergePrompt: z.string().max(500).optional(),
-  mergeStrategy: z.enum(['synthesize', 'combine', 'abstract', 'contrast']).optional(),
   modelConfig: z.object({
     provider: z.enum(['mock', 'groq', 'cohere']),
     model: z.string().optional()

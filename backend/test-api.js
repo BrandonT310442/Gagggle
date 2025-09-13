@@ -56,7 +56,6 @@ const CONFIG = {
         content: 'Create an adaptive UI/UX system that dynamically adjusts the interface complexity based on user proficiency levels and learning progress. Start with a simplified interface showing only essential features, then gradually reveal advanced functionality as users demonstrate competence. Implement A/B testing frameworks to continuously optimize the onboarding flow based on conversion metrics and user feedback. Use heat mapping and session recording tools to identify pain points and areas of confusion. The system should support multiple device types with responsive design and maintain consistency across web, mobile, and desktop applications.'
       }
     ],
-    mergeStrategy: 'synthesize', // 'synthesize', 'combine', 'abstract', or 'contrast'
     mergePrompt: 'Synthesize these four advanced onboarding features into a cohesive, enterprise-ready onboarding platform architecture. Focus on how these components work together, data flow between systems, technical implementation considerations, and expected business outcomes. Provide a 12-sentence comprehensive synthesis that could serve as an executive summary for stakeholders.'
   }
 };
@@ -142,7 +141,6 @@ async function testMerge() {
   console.log('\n🚀 Testing MERGE endpoint...\n');
   console.log('Provider:', CONFIG.modelConfig.provider);
   console.log('Model:', CONFIG.modelConfig.model);
-  console.log('Merge Strategy:', CONFIG.merge.mergeStrategy);
   console.log('Number of nodes:', CONFIG.merge.nodes.length);
   console.log('\n🎯 Merge Prompt:', CONFIG.merge.mergePrompt);
   
@@ -182,7 +180,6 @@ async function testMerge() {
     console.log('\n✅ Response received!\n');
     console.log('Success:', data.success);
     console.log('Generation time:', data.generationTime, 'ms');
-    console.log('Merge Strategy Used:', data.mergeStrategy);
     console.log('\n🔀 Merged Idea:\n');
     console.log('Content:', data.mergedIdea.content);
     console.log('ID:', data.mergedIdea.id);

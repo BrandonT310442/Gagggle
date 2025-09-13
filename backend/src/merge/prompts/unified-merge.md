@@ -13,20 +13,8 @@ Node {{@index}}:
 - Content: {{this.content}}
 {{/each}}
 
-## Merge Strategy: {{mergeStrategy}}
-
-{{#if synthesize}}
-Create a unified concept that captures the essence and value of all input ideas through intelligent synthesis.
-{{/if}}
-{{#if combine}}
-Create a comprehensive solution that incorporates elements from each idea additively.
-{{/if}}
-{{#if abstract}}
-Extract the underlying patterns and principles to create a higher-level framework.
-{{/if}}
-{{#if contrast}}
-Highlight the differences and tensions between ideas to create a balanced perspective.
-{{/if}}
+## Merge Approach
+Create a unified concept that intelligently synthesizes and combines the best elements from all input ideas, capturing their essence and creating synergy between concepts.
 
 ## Your Task
 Merge the above concepts into ONE unified solution that:

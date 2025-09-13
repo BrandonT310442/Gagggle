@@ -15,7 +15,6 @@ export interface IdeaNode {
     generatedBy: 'ai' | 'user';
     generationPrompt?: string;
     mergedFrom?: string[];
-    mergeStrategy?: string;
   };
   createdBy: string;
   createdAt: Date;
@@ -52,7 +51,6 @@ export interface MergeIdeasRequest {
     metadata?: Record<string, any>;
   }>;
   mergePrompt?: string; // Optional user-provided merge instruction
-  mergeStrategy?: 'synthesize' | 'combine' | 'abstract' | 'contrast';
   modelConfig?: ModelConfig; // Optional model selection
 }
 
@@ -60,7 +58,6 @@ export interface MergeIdeasResponse {
   success: boolean;
   mergedIdea: IdeaNode;
   sourceNodeIds: string[];
-  mergeStrategy: string;
   tokensUsed?: number;
   generationTime: number;
 }

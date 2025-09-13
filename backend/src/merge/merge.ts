@@ -71,19 +71,12 @@ export async function mergeIdeas(request: MergeIdeasRequest): Promise<MergeIdeas
     
     // Use unified merge template
     const template = loadPromptTemplate('unified-merge.md');
-    const strategy = request.mergeStrategy || 'synthesize';
     
     // Prepare template data
     const templateData = {
       nodes: request.nodes,
       nodeCount: request.nodes.length,
-      mergeStrategy: strategy,
-      userInstruction: request.mergePrompt,
-      // Set flags for each strategy
-      synthesize: strategy === 'synthesize',
-      combine: strategy === 'combine',
-      abstract: strategy === 'abstract',
-      contrast: strategy === 'contrast'
+      userInstruction: request.mergePrompt
     };
     
     // Render the prompt
@@ -105,9 +98,8 @@ export async function mergeIdeas(request: MergeIdeasRequest): Promise<MergeIdeas
       childIds: [],
       metadata: {
         generatedBy: 'ai',
-        generationPrompt: request.mergePrompt || `Merged ${ideaContents.length} ideas using ${strategy} strategy`,
-        mergedFrom: request.nodes.map(n => n.id),
-        mergeStrategy: strategy
+        generationPrompt: request.mergePrompt || `Merged ${ideaContents.length} ideas`,
+        mergedFrom: request.nodes.map(n => n.id)
       },
       createdBy: 'system',
       createdAt: new Date(),
@@ -120,7 +112,6 @@ export async function mergeIdeas(request: MergeIdeasRequest): Promise<MergeIdeas
       success: true,
       mergedIdea,
       sourceNodeIds: request.nodes.map(n => n.id),
-      mergeStrategy: strategy,
       generationTime
     };
     
