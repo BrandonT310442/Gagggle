@@ -8,43 +8,10 @@ You are an expert content generator. Your task is to expand the following idea i
 
 ## Generation Guidelines
 
-{{#if style}}
-### Style: {{style}}
-
-{{#if isBrief}}
-- Keep the response **extremely concise** (2 sentences maximum)
-- Focus on the **most critical** points only
-- Get straight to the point
-{{/if}}
-
-{{#if isDetailed}}
-- Provide **comprehensive information** in exactly 3 sentences
-- Include the **most important details** and considerations
-- Balance depth with brevity
-{{/if}}
-
-{{#if isCreative}}
-- Think **innovatively** within 2-3 sentences
-- Suggest **unconventional approaches**
-- Make it **engaging and inspiring**
-{{/if}}
-{{else}}
-### Default Style
 - Provide a **balanced response** in 2-3 sentences
 - Include **practical details** and examples
 - Make it **actionable and clear**
 - Focus on **real-world applicability**
-{{/if}}
-
-{{#if domain}}
-## Domain Context
-
-This should be relevant to **{{domain}}**. Consider:
-- Domain-specific best practices
-- Appropriate terminology
-- Industry standards and conventions
-- Common challenges in this domain
-{{/if}}
 
 {{#if parentNode}}
 ## Parent Context
@@ -56,12 +23,6 @@ Ensure your expansion:
 - Provides **specific implementation** of this broader idea
 - Maintains **consistency** with the parent's intent
 - Adds **concrete value** to the parent concept
-{{/if}}
-
-{{#if maxLength}}
-## Length Constraint
-
-Keep the response under **{{maxLength}} characters**.
 {{/if}}
 
 ## Output Requirements

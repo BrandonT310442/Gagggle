@@ -19,12 +19,6 @@ export interface GenerationState {
   input: {
     prompt: string;
     count: number;
-    boardId: string;
-    constraints?: {
-      style?: 'brief' | 'detailed' | 'creative';
-      domain?: string;
-      maxLength?: number;
-    };
     parentNode?: {
       id: string;
       content: string;

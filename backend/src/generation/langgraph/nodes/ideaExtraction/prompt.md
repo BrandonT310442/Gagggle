@@ -6,22 +6,6 @@ Generate {{count}} different ideas for: "{{prompt}}"
 Context: These ideas should expand on "{{parentContent}}"
 {{/if}}
 
-{{#if domain}}
-Domain: {{domain}}
-{{/if}}
-
-{{#if style}}
-{{#if isBrief}}
-Style: Keep ideas short and concise (few words each)
-{{/if}}
-{{#if isDetailed}}
-Style: Make ideas more descriptive and specific
-{{/if}}
-{{#if isCreative}}
-Style: Be creative and think outside the box
-{{/if}}
-{{/if}}
-
 ## Instructions
 - Generate exactly {{count}} distinct ideas
 - Each idea should be different from the others

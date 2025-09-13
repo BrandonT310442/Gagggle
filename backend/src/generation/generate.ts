@@ -30,7 +30,7 @@ export async function generateIdeas(request: GenerateIdeasRequest): Promise<Gene
     const nodeConfig: NodeConfig = {
       modelProvider: modelConfig.provider,
       modelName: modelConfig.model || getDefaultModel(modelConfig.provider),
-      temperature: request.constraints?.style === 'creative' ? 0.9 : 0.7,
+      temperature: 0.7,
       maxRetries: 3,
       timeout: 30000
     };
@@ -40,8 +40,6 @@ export async function generateIdeas(request: GenerateIdeasRequest): Promise<Gene
     const result = await workflow.execute({
       prompt: request.prompt,
       count: request.count,
-      boardId: request.boardId,
-      constraints: request.constraints,
       parentNode: request.parentNode,
       modelConfig: modelConfig
     });
@@ -59,7 +57,6 @@ export async function generateIdeas(request: GenerateIdeasRequest): Promise<Gene
     // Convert responses to IdeaNodes
     const ideas: IdeaNode[] = result.responses.map(response => ({
       id: generateId(),
-      boardId: request.boardId,
       content: response.content,
       parentId: request.parentNode?.id,
       childIds: [],
@@ -67,8 +64,6 @@ export async function generateIdeas(request: GenerateIdeasRequest): Promise<Gene
         generatedBy: 'ai',
         generationPrompt: request.prompt,
         ideaText: response.ideaText,
-        style: request.constraints?.style,
-        domain: request.constraints?.domain,
         ...response.metadata
       },
       createdBy: 'system',

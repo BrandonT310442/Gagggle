@@ -78,7 +78,7 @@ export class ContentGenerationNode {
   }
   
   private renderPrompt(idea: Idea, state: GenerationState): string {
-    const { constraints, parentNode } = state.input;
+    const { parentNode } = state.input;
     
     // Prepare template data
     const data: Record<string, any> = {
@@ -87,16 +87,6 @@ export class ContentGenerationNode {
       
       // Original context
       originalPrompt: state.input.prompt,
-      
-      // Style configuration
-      style: constraints?.style,
-      isBrief: constraints?.style === 'brief',
-      isDetailed: constraints?.style === 'detailed',
-      isCreative: constraints?.style === 'creative',
-      
-      // Constraints
-      domain: constraints?.domain,
-      maxLength: constraints?.maxLength,
       
       // Parent context
       parentNode: parentNode,

@@ -107,21 +107,14 @@ export class IdeaExtractionNode {
   }
   
   private renderPrompt(state: GenerationState): string {
-    const { constraints, parentNode } = state.input;
+    const { parentNode } = state.input;
     
     // Prepare template data
     const data: Record<string, any> = {
       count: state.input.count,
       prompt: state.input.prompt,
-      style: constraints?.style,
-      domain: constraints?.domain,
       parentNode: parentNode,
-      parentContent: parentNode?.content,
-      
-      // Style flags
-      isBrief: constraints?.style === 'brief',
-      isDetailed: constraints?.style === 'detailed',
-      isCreative: constraints?.style === 'creative'
+      parentContent: parentNode?.content
     };
     
     // Render the template

@@ -35,10 +35,7 @@ const CONFIG = {
     //   id: 'parent-123',
     //   content: 'Implement a guided tutorial system'
     // },
-    constraints: {
-      style: 'creative', // 'brief', 'detailed', or 'creative'
-      domain: 'product design'
-    }
+  
   },
   
   // For MERGE
@@ -87,7 +84,6 @@ async function testGeneration() {
   console.log('Model:', CONFIG.modelConfig.model);
   console.log('Prompt:', CONFIG.generation.prompt);
   console.log('Count:', CONFIG.generation.count);
-  console.log('Style:', CONFIG.generation.constraints.style);
   
   const requestBody = {
     ...CONFIG.generation,

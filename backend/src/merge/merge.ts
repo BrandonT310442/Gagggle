@@ -101,7 +101,6 @@ export async function mergeIdeas(request: MergeIdeasRequest): Promise<MergeIdeas
     // Create the merged IdeaNode
     const mergedIdea: IdeaNode = {
       id: generateId(),
-      boardId: request.boardId,
       content: mergedContent,
       childIds: [],
       metadata: {
