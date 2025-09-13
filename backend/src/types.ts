@@ -66,6 +66,7 @@ export interface MergeIdeasResponse {
 export interface LLMProvider {
   generateIdeas(params: LLMGenerationParams): Promise<string[]>;
   mergeIdeas(params: LLMMergeParams): Promise<string>;
+  generateTitle(params: LLMTitleParams): Promise<string>;
   getTokenCount?(text: string): number;
   setModel?(model: string): void;
   getModel?(): string;
@@ -93,6 +94,12 @@ export interface LLMMergeParams {
   temperature?: number;
 }
 
+export interface LLMTitleParams {
+  prompt: string;
+  maxTokens?: number;
+  temperature?: number;
+}
+
 // Categorization
 export interface CategorizeRequest {
   nodes: Array<{
@@ -107,6 +114,18 @@ export interface CategorizeResponse {
   category: string;            // The category name
   nodeIds: string[];           // IDs of categorized nodes
   generationTime: number;
+}
+
+// Title Generation
+export interface GenerateTitleRequest {
+  input: string;                // User's initial brainstorming prompt or question
+  modelConfig?: ModelConfig;    // Optional model selection
+}
+
+export interface GenerateTitleResponse {
+  success: boolean;
+  title: string;                // Generated title (3-8 words typical)
+  generationTime: number;       // milliseconds
 }
 
 // Error types

@@ -1,6 +1,6 @@
 import Groq from 'groq-sdk';
 import { BaseLLMProvider } from './provider';
-import { LLMGenerationParams, LLMMergeParams, LLMError } from '../types';
+import { LLMGenerationParams, LLMMergeParams, LLMTitleParams, LLMError } from '../types';
 
 export class GroqLLMProvider extends BaseLLMProvider {
   private readonly client: Groq;
@@ -62,6 +62,29 @@ export class GroqLLMProvider extends BaseLLMProvider {
     } catch (error) {
       console.error('GROQ merge error:', error);
       throw new LLMError(`Failed to merge ideas: ${error instanceof Error ? error.message : 'Unknown error'}`, 'groq');
+    }
+  }
+
+  async generateTitle(params: LLMTitleParams): Promise<string> {
+    const { prompt, maxTokens = 50, temperature = 0.7 } = params;
+
+    try {
+      // Just pass the prompt directly - it's already fully rendered from title.ts
+      const completion = await this.client.chat.completions.create({
+        messages: [
+          { role: 'user', content: prompt }
+        ],
+        model: this.model,
+        max_tokens: maxTokens,
+        temperature,
+      });
+
+      const response = completion.choices[0]?.message?.content?.trim() || 'Brainstorming Session';
+      
+      return response;
+    } catch (error) {
+      console.error('GROQ title generation error:', error);
+      throw new LLMError(`Failed to generate title: ${error instanceof Error ? error.message : 'Unknown error'}`, 'groq');
     }
   }
 
