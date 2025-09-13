@@ -15,6 +15,10 @@ export interface IdeaNode {
     generatedBy: 'ai' | 'user';
     generationPrompt?: string;
     mergedFrom?: string[];
+    isPrompt?: boolean;
+    createdAt?: string;
+    ideaText?: string;
+    [key: string]: any; // Allow additional metadata fields
   };
   createdBy: string;
   createdAt: Date;
@@ -33,6 +37,7 @@ export interface GenerateIdeasRequest {
     metadata?: Record<string, any>;
   };
   modelConfig?: ModelConfig; // Optional model selection
+  createPromptNode?: boolean; // Whether to create a node for the prompt itself (default: true for root)
 }
 
 export interface GenerateIdeasResponse {
