@@ -6,7 +6,8 @@ import { createServer } from 'http';
 import { Server } from 'socket.io';
 import { generateIdeas } from './generation/generate';
 import { mergeIdeas } from './merge/merge';
-import { validateRequest, generateIdeasSchema, mergeIdeasSchema } from './utils/validation';
+import { categorizeNodes } from './categorize/categorize';
+import { validateRequest, generateIdeasSchema, mergeIdeasSchema, categorizeNodesSchema } from './utils/validation';
 import { APIError, LLMProviderType } from './types';
 import { getAvailableModels, AVAILABLE_MODELS } from './llm/provider';
 
@@ -142,6 +143,31 @@ app.post('/api/merge',
         res.status(500).json({
           success: false,
           error: 'Internal server error during merge'
+        });
+      }
+    }
+  }
+);
+
+// Categorize nodes endpoint
+app.post('/api/categorize',
+  validateRequest(categorizeNodesSchema),
+  async (req, res) => {
+    try {
+      const result = await categorizeNodes(req.body);
+      res.json(result);
+    } catch (error) {
+      console.error('Categorization error:', error);
+      if (error instanceof APIError) {
+        res.status(error.statusCode).json({
+          success: false,
+          error: error.message,
+          code: error.code
+        });
+      } else {
+        res.status(500).json({ 
+          success: false, 
+          error: 'Internal server error during categorization' 
         });
       }
     }

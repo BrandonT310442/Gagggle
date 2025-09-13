@@ -28,6 +28,17 @@ export const mergeIdeasSchema = z.object({
   }).optional()
 });
 
+export const categorizeNodesSchema = z.object({
+  nodes: z.array(z.object({
+    id: z.string(),
+    content: z.string()
+  })).min(2, 'At least 2 nodes required').max(10),
+  modelConfig: z.object({
+    provider: z.enum(['mock', 'groq', 'cohere']),
+    model: z.string().optional()
+  }).optional()
+});
+
 // Validation middleware factory
 export function validateRequest(schema: z.ZodSchema) {
   return (req: any, res: any, next: any) => {

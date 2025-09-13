@@ -93,6 +93,22 @@ export interface LLMMergeParams {
   temperature?: number;
 }
 
+// Categorization
+export interface CategorizeRequest {
+  nodes: Array<{
+    id: string;
+    content: string;
+  }>;                          // 2-10 nodes to categorize
+  modelConfig?: ModelConfig;    // LLM configuration
+}
+
+export interface CategorizeResponse {
+  success: boolean;
+  category: string;            // The category name
+  nodeIds: string[];           // IDs of categorized nodes
+  generationTime: number;
+}
+
 // Error types
 export class APIError extends Error {
   constructor(
