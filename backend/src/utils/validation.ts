@@ -1,0 +1,54 @@
+import { z } from 'zod';
+
+// Validation schemas
+export const generateIdeasSchema = z.object({
+  prompt: z.string().min(1, 'Prompt is required').max(1000),
+  count: z.number().int().min(1).max(10),
+  boardId: z.string(),
+  parentNode: z.object({
+    id: z.string(),
+    content: z.string(),
+    metadata: z.record(z.string(), z.any()).optional()
+  }).optional(),
+  constraints: z.object({
+    maxLength: z.number().int().min(10).max(500).optional(),
+    style: z.enum(['brief', 'detailed', 'creative']).optional(),
+    domain: z.string().optional()
+  }).optional()
+});
+
+export const mergeIdeasSchema = z.object({
+  boardId: z.string(),
+  nodes: z.array(z.object({
+    id: z.string(),
+    content: z.string(),
+    metadata: z.record(z.string(), z.any()).optional()
+  })).min(2, 'At least 2 nodes required').max(5),
+  mergePrompt: z.string().max(500).optional(),
+  mergeStrategy: z.enum(['synthesize', 'combine', 'abstract', 'contrast']).optional()
+});
+
+// Validation middleware factory
+export function validateRequest(schema: z.ZodSchema) {
+  return (req: any, res: any, next: any) => {
+    try {
+      schema.parse(req.body);
+      next();
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({
+          success: false,
+          error: 'Validation failed',
+          details: error.issues
+        });
+      } else {
+        next(error);
+      }
+    }
+  };
+}
+
+// Helper to generate unique IDs
+export function generateId(): string {
+  return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+}
