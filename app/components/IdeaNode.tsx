@@ -10,71 +10,127 @@ interface IdeaNodeProps {
   onGenerateChildren?: () => void;
 }
 
-export default function IdeaNode({ 
-  node, 
-  isSelected = false, 
+const CohereIcon = () => {
+  const img = '/cohere-icon-mask.svg';
+  const img1 = '/cohere-icon.svg';
+
+  return (
+    <div className='relative w-4 h-4' data-name='cohere'>
+      <div
+        className='absolute inset-0 mask-alpha mask-intersect mask-no-clip mask-no-repeat mask-position-[0px] mask-size-[47.651px_48.857px]'
+        data-name='Group'
+        style={{ maskImage: `url('${img}')` }}
+      >
+        <img alt='Cohere' className='block max-w-none size-full' src={img1} />
+      </div>
+    </div>
+  );
+};
+
+const MetaIcon = () => {
+  const imgImage1 = '/meta-icon.png';
+
+  return (
+    <div
+      className='w-4 h-4 bg-center bg-cover bg-no-repeat'
+      data-name='image 1'
+      style={{ backgroundImage: `url('${imgImage1}')` }}
+    />
+  );
+};
+
+const OpenAIIcon = () => {
+  const img = '/openai-icon.svg';
+
+  return (
+    <div className='relative w-4 h-4' data-name='Vector'>
+      <img alt='OpenAI' className='block max-w-none size-full' src={img} />
+    </div>
+  );
+};
+
+export default function IdeaNode({
+  node,
+  isSelected = false,
   onSelect,
-  onGenerateChildren 
-}: IdeaNodeProps) {
+  onGenerateChildren,
+}: Readonly<IdeaNodeProps>) {
   const [isHovered, setIsHovered] = useState(false);
-  
+
   const isPromptNode = node.metadata?.isPrompt;
-  const isAIGenerated = node.metadata?.generatedBy === 'ai';
+
+  const getModelIcon = (provider?: string) => {
+    if (provider === 'cohere') {
+      return <CohereIcon />;
+    }
+    if (provider === 'groq') {
+      return <MetaIcon />;
+    }
+    if (provider === 'openai') {
+      return <OpenAIIcon />;
+    }
+    return <MetaIcon />;
+  };
+
+  const formatModelName = (modelName?: string, modelLabel?: string) => {
+    if (modelLabel) return modelLabel;
+    if (!modelName) return 'Unknown Model';
+
+    if (modelName.includes('llama-3.3-70b')) return 'Llama 3.3 70B';
+    if (modelName.includes('llama3-groq-70b')) return 'Llama 3 70B Tool Use';
+    if (modelName.includes('llama-guard-4')) return 'Llama Guard 4';
+    if (modelName.includes('gpt-oss-120b')) return 'GPT OSS 120B';
+    if (modelName.includes('gpt-oss-20b')) return 'GPT OSS 20B';
+    if (modelName.includes('command-r-plus')) return 'Command R+';
+    if (modelName.includes('command-r')) return 'Command R';
+
+    return modelName;
+  };
 
   return (
     <div
       className={`
-        absolute transform -translate-x-1/2 -translate-y-1/2
-        bg-white rounded-lg shadow-md p-4 cursor-pointer
-        transition-all duration-200 min-w-[200px] max-w-[300px]
+        bg-white box-border flex flex-col gap-6 items-start justify-start p-6 relative
+        cursor-pointer transition-all duration-200
         ${isSelected ? 'ring-2 ring-blue-500 shadow-lg' : ''}
-        ${isHovered ? 'shadow-xl scale-105' : ''}
-        ${isPromptNode ? 'bg-slate-100 border-2 border-slate-400' : ''}
-        ${isAIGenerated ? 'border border-gray-200' : 'border border-gray-300'}
+        ${isHovered ? 'shadow-xl' : 'shadow-md'}
       `}
-      style={{
-        left: `${node.position?.x || 0}px`,
-        top: `${node.position?.y || 0}px`,
-      }}
       onClick={onSelect}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
+      style={{
+        width: 'fit-content',
+        minWidth: '300px',
+        maxWidth: '400px',
+      }}
     >
-      <div className="flex flex-col gap-2">
-        {isPromptNode && (
-          <div className="text-xs font-semibold text-slate-600 uppercase tracking-wider">
-            Prompt
+      <div className='flex flex-col gap-2 items-start justify-start relative shrink-0 w-full'>
+        {/* Model info section */}
+        <div className='box-border flex gap-2 items-center justify-start px-0 py-2 relative shrink-0'>
+          <div className='flex gap-1 items-center justify-start relative shrink-0'>
+            {getModelIcon(node.metadata?.modelProvider)}
+            <div className="font-['Inter'] text-xs font-normal leading-4 text-black whitespace-nowrap">
+              {formatModelName(
+                node.metadata?.modelName,
+                node.metadata?.modelLabel
+              )}
+            </div>
           </div>
-        )}
-        
-        <div className="text-sm text-gray-800 line-clamp-3">
+        </div>
+
+        {/* Content section */}
+        <div
+          className="font-['Syne'] text-base font-normal leading-6 text-black"
+          style={{
+            fontFamily: 'Syne, sans-serif',
+            width: 'min-content',
+            minWidth: '100%',
+          }}
+        >
           {node.content}
         </div>
-
-        {node.metadata?.ideaText && (
-          <div className="text-xs text-gray-500 italic mt-1">
-            {node.metadata.ideaText}
-          </div>
-        )}
-
-        <div className="flex items-center justify-between mt-2">
-          <div className="text-xs text-gray-400">
-            {node.childIds.length > 0 && `${node.childIds.length} children`}
-          </div>
-          
-          {onGenerateChildren && !isPromptNode && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onGenerateChildren();
-              }}
-              className="text-xs bg-blue-500 text-white px-2 py-1 rounded hover:bg-blue-600 transition-colors"
-            >
-              Generate Ideas
-            </button>
-          )}
-        </div>
       </div>
+
     </div>
   );
 }

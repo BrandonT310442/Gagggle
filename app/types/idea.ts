@@ -9,6 +9,9 @@ export interface IdeaNode {
     ideaText?: string;
     isPrompt?: boolean;
     createdAt?: string;
+    modelProvider?: string;
+    modelName?: string;
+    modelLabel?: string;
     [key: string]: any;
   };
   createdBy: string;

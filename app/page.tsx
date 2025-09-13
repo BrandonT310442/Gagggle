@@ -59,7 +59,12 @@ function HomePageContent() {
   return (
     <CursorSharing>
       {({ connectedUsers, currentUser, isConnected }) => (
-        <div className='min-h-screen bg-gray-50 relative'>
+        <div className='min-h-screen relative'
+             style={{
+               backgroundColor: '#F8FAFC',
+               backgroundImage: 'url(/gagggle-background-spaced.svg)',
+               backgroundRepeat: 'repeat'
+             }}>
           <div className='absolute top-4 left-4 w-fit z-10'>
             <FileName fileName={fileName} onFileNameChange={handleFileNameChange} />
           </div>
