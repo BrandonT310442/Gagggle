@@ -32,7 +32,7 @@ export const categorizeNodesSchema = z.object({
   nodes: z.array(z.object({
     id: z.string(),
     content: z.string()
-  })).min(2, 'At least 2 nodes required').max(10),
+  })).min(1, 'At least 1 node required').max(10),
   modelConfig: z.object({
     provider: z.enum(['mock', 'groq', 'cohere']),
     model: z.string().optional()

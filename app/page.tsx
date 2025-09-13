@@ -8,6 +8,7 @@ import ShareBar from './components/ShareBar';
 import ToolBar from './components/ToolBar';
 import NodeGraph from './components/NodeGraph';
 import { IdeaGraphProvider, useIdeaGraph } from './contexts/IdeaGraphContext';
+import { categorizeNodes } from './services/api';
 
 function HomePageContent() {
   const [fileName, setFileName] = useState('Untitled Document');
@@ -19,6 +20,8 @@ function HomePageContent() {
     ideaCount: string;
     prompt: string;
   }) => {
+    const isFirstPrompt = state.nodes.size === 0;
+    
     await generateIdeas({
       prompt: data.prompt,
       count: parseInt(data.ideaCount),
@@ -27,7 +30,29 @@ function HomePageContent() {
         model: data.model,
       },
     });
-  }, [generateIdeas]);
+    
+    // If this was the first prompt, categorize it to generate a title
+    if (isFirstPrompt) {
+      try {
+        const response = await categorizeNodes({
+          nodes: [{
+            id: 'initial-prompt',
+            content: data.prompt
+          }],
+          modelConfig: {
+            provider: data.provider,
+            model: data.model
+          }
+        });
+        
+        if (response.success && response.category) {
+          setFileName(response.category);
+        }
+      } catch (error) {
+        console.error('Failed to categorize prompt for title:', error);
+      }
+    }
+  }, [generateIdeas, state.nodes]);
 
   const handleNodeGenerate = useCallback(async (nodeId: string) => {
     const node = state.nodes.get(nodeId);
