@@ -5,12 +5,13 @@ import { generateId } from '../utils/validation';
 import { graphStore } from '../graph/graphStore';
 
 // Helper function to get default model for provider
+// These should match the defaults in the provider constructors
 function getDefaultModel(provider: string): string {
   switch (provider) {
     case 'groq':
-      return 'llama-3.3-70b-versatile';
+      return 'llama-3.1-8b-instant'; // Matches GroqLLMProvider constructor default
     case 'cohere':
-      return 'command-r-plus';
+      return 'command-r'; // Matches CohereLLMProvider constructor default
     case 'mock':
       return 'mock-model';
     default:

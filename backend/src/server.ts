@@ -5,11 +5,12 @@ import dotenv from 'dotenv';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import { generateIdeas } from './generation/generate';
+import { generateTitle } from './title/title';
 import { mergeIdeas } from './merge/merge';
 import { categorizeNodes } from './categorize/categorize';
 import { exportGraphToMarkdown, getGraphDebugInfo } from './export/export.service';
 import { graphStore } from './graph/graphStore';
-import { validateRequest, generateIdeasSchema, mergeIdeasSchema, categorizeNodesSchema } from './utils/validation';
+import { validateRequest, generateIdeasSchema, mergeIdeasSchema, categorizeNodesSchema, generateTitleSchema } from './utils/validation';
 import { APIError, LLMProviderType } from './types';
 import { getAvailableModels, AVAILABLE_MODELS } from './llm/provider';
 
@@ -170,6 +171,31 @@ app.post('/api/categorize',
         res.status(500).json({ 
           success: false, 
           error: 'Internal server error during categorization' 
+        });
+      }
+    }
+  }
+);
+
+// Generate title endpoint
+app.post('/api/title',
+  validateRequest(generateTitleSchema),
+  async (req, res) => {
+    try {
+      const result = await generateTitle(req.body);
+      res.json(result);
+    } catch (error) {
+      console.error('Title generation error:', error);
+      if (error instanceof APIError) {
+        res.status(error.statusCode).json({
+          success: false,
+          error: error.message,
+          code: error.code
+        });
+      } else {
+        res.status(500).json({
+          success: false,
+          error: 'Internal server error during title generation'
         });
       }
     }

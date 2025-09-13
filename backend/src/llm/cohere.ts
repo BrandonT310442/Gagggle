@@ -1,6 +1,6 @@
 import { CohereClientV2 } from 'cohere-ai';
 import { BaseLLMProvider } from './provider';
-import { LLMGenerationParams, LLMMergeParams, LLMError } from '../types';
+import { LLMGenerationParams, LLMMergeParams, LLMTitleParams, LLMError } from '../types';
 
 export class CohereLLMProvider extends BaseLLMProvider {
   private readonly client: CohereClientV2;
@@ -64,6 +64,30 @@ export class CohereLLMProvider extends BaseLLMProvider {
     } catch (error) {
       console.error('Cohere merge error:', error);
       throw new LLMError(`Failed to merge ideas: ${error instanceof Error ? error.message : 'Unknown error'}`, 'cohere');
+    }
+  }
+
+  async generateTitle(params: LLMTitleParams): Promise<string> {
+    const { prompt, maxTokens = 50, temperature = 0.7 } = params;
+
+    try {
+      // Just pass the prompt directly - it's already fully rendered from title.ts
+      const response = await this.client.chat({
+        model: this.model,
+        messages: [
+          { role: 'user', content: prompt }
+        ],
+        maxTokens: maxTokens,
+        temperature,
+      });
+
+      const content = response.message?.content?.[0];
+      const title = ((content && 'text' in content) ? content.text : '') || 'Brainstorming Session';
+      
+      return title.trim();
+    } catch (error) {
+      console.error('Cohere title generation error:', error);
+      throw new LLMError(`Failed to generate title: ${error instanceof Error ? error.message : 'Unknown error'}`, 'cohere');
     }
   }
 

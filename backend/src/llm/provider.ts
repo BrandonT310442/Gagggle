@@ -1,9 +1,10 @@
-import { LLMProvider, LLMGenerationParams, LLMMergeParams, LLMProviderType, ModelConfig } from '../types';
+import { LLMProvider, LLMGenerationParams, LLMMergeParams, LLMTitleParams, LLMProviderType, ModelConfig } from '../types';
 
 // Abstract LLM Provider interface
 export abstract class BaseLLMProvider implements LLMProvider {
   abstract generateIdeas(params: LLMGenerationParams): Promise<string[]>;
   abstract mergeIdeas(params: LLMMergeParams): Promise<string>;
+  abstract generateTitle(params: LLMTitleParams): Promise<string>;
   
   getTokenCount?(text: string): number {
     // Simple approximation: ~4 characters per token
