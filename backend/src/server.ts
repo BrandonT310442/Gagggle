@@ -7,6 +7,8 @@ import { Server } from 'socket.io';
 import { generateIdeas } from './generation/generate';
 import { mergeIdeas } from './merge/merge';
 import { categorizeNodes } from './categorize/categorize';
+import { exportGraphToMarkdown, getGraphDebugInfo } from './export/export.service';
+import { graphStore } from './graph/graphStore';
 import { validateRequest, generateIdeasSchema, mergeIdeasSchema, categorizeNodesSchema } from './utils/validation';
 import { APIError, LLMProviderType } from './types';
 import { getAvailableModels, AVAILABLE_MODELS } from './llm/provider';
@@ -173,6 +175,34 @@ app.post('/api/categorize',
     }
   }
 );
+
+// Export endpoints
+app.get('/api/export', (req, res) => {
+  try {
+    const markdown = exportGraphToMarkdown();
+    res.json({
+      success: true,
+      content: markdown
+    });
+  } catch (error) {
+    console.error('Export error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Export failed'
+    });
+  }
+});
+
+// Debug endpoint to see graph structure
+app.get('/api/graph/debug', (req, res) => {
+  res.json(getGraphDebugInfo());
+});
+
+// Clear graph endpoint (useful for testing)
+app.post('/api/graph/clear', (req, res) => {
+  graphStore.clear();
+  res.json({ success: true, message: 'Graph cleared' });
+});
 
 // Enhanced cursor sharing WebSocket handler
 io.on('connection', (socket) => {
