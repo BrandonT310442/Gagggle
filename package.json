@@ -4,12 +4,18 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "dev:local": "next dev --hostname 0.0.0.0",
     "build": "next build",
     "start": "next start",
+    "start:local": "next start --hostname 0.0.0.0",
     "lint": "eslint",
     "backend": "ts-node --project tsconfig.backend.json backend/src/server.ts",
     "backend:dev": "nodemon --watch backend/src --ext ts --exec ts-node --project tsconfig.backend.json backend/src/server.ts",
-    "ai-client": "ts-node --project tsconfig.backend.json backend/scripts/ai-client.ts"
+    "backend:local": "ts-node --project tsconfig.backend.json backend/src/server.ts",
+    "ai-client": "ts-node --project tsconfig.backend.json backend/scripts/ai-client.ts",
+    "get-ip": "./scripts/get-local-ip.sh",
+    "demo:local": "./scripts/start-local-demo.sh",
+    "demo:setup": "echo 'Starting local network demo...' && ./scripts/get-local-ip.sh"
   },
   "dependencies": {
     "@langchain/cohere": "^0.3.4",

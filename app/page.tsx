@@ -43,10 +43,10 @@ export default function CursorDemo() {
   useEffect(() => {
     if (!roomId) return; // Wait for roomId to be set
     
-    // Use localhost for local development, ngrok backend for remote access
-    const backendUrl = window.location.hostname === 'localhost' 
-      ? 'http://localhost:3001'
-      : 'https://e77662780c94.ngrok-free.app'; // Backend ngrok tunnel
+    // Determine backend URL based on how the frontend is accessed
+    const backendUrl = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+      ? 'http://localhost:3001'  // Localhost development
+      : `http://${window.location.hostname}:3001`;  // Local network via IP
     
     const newSocket = io(backendUrl, {
       query: { roomId, userId },

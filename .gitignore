@@ -39,3 +39,10 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# local network demo files
+.local-ip
+.demo-url
+.backend-url
+.backend-pid
+.frontend-pid

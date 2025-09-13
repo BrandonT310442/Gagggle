@@ -23,8 +23,9 @@ const io = new Server(httpServer, {
   cors: {
     origin: [
       "http://localhost:3000",
-      /^https:\/\/.*\.ngrok\.io$/,  // Allow any ngrok subdomain
-      /^https:\/\/.*\.ngrok-free\.app$/  // Allow any ngrok-free subdomain
+      /^http:\/\/192\.168\.\d+\.\d+:3000$/,  // Allow local network IPs
+      /^http:\/\/10\.\d+\.\d+\.\d+:3000$/,   // Allow 10.x.x.x network
+      /^http:\/\/172\.\d+\.\d+\.\d+:3000$/   // Allow 172.x.x.x network
     ],
     methods: ["GET", "POST"],
     credentials: true
@@ -53,8 +54,9 @@ const rooms = new Map<string, Room>();
 app.use(cors({
   origin: [
     "http://localhost:3000",
-    /^https:\/\/.*\.ngrok\.io$/,  // Allow any ngrok subdomain
-    /^https:\/\/.*\.ngrok-free\.app$/  // Allow any ngrok-free subdomain
+    /^http:\/\/192\.168\.\d+\.\d+:3000$/,  // Allow local network IPs
+    /^http:\/\/10\.\d+\.\d+\.\d+:3000$/,   // Allow 10.x.x.x network
+    /^http:\/\/172\.\d+\.\d+\.\d+:3000$/   // Allow 172.x.x.x network
   ],
   credentials: true
 }));
@@ -330,12 +332,13 @@ app.use((req, res) => {
 // Start server
 if (require.main === module) {
   httpServer.listen(PORT, () => {
-    console.log(`🚀 BrainstormBoard Backend Server running on port ${PORT}`);
+    console.log(`🚀 BrainstormBoard Backend Server running on all interfaces port ${PORT}`);
     console.log(`🤖 Using LLM Provider: ${process.env.LLM_PROVIDER || 'mock'}`);
     console.log(`📍 Health check: http://localhost:${PORT}/health`);
     console.log(`📍 Generate ideas: POST http://localhost:${PORT}/api/generate`);
     console.log(`📍 Merge ideas: POST http://localhost:${PORT}/api/merge`);
     console.log(`🖱️  Real-time cursor sharing enabled`);
+    console.log(`🌐 Backend accessible on local network - run 'chmod +x scripts/get-local-ip.sh && ./scripts/get-local-ip.sh' to get your IP`);
   });
 }
 
