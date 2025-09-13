@@ -10,6 +10,7 @@ import NodeGraph from './components/NodeGraph';
 import { IdeaGraphProvider, useIdeaGraph } from './contexts/IdeaGraphContext';
 import Lottie from 'lottie-react';
 import loadingAnimation from '../public/gagggleLoading.json';
+import { categorizeNodes } from './services/api';
 
 function HomePageContent() {
   const [fileName, setFileName] = useState('Untitled Document');
@@ -20,21 +21,45 @@ function HomePageContent() {
     async (data: {
       provider: string;
       model?: string;
-      modelLabel?: string;
       ideaCount: string;
       prompt: string;
     }) => {
+      const isFirstPrompt = state.nodes.size === 0;
+
       await generateIdeas({
         prompt: data.prompt,
         count: parseInt(data.ideaCount),
         modelConfig: {
           provider: data.provider as 'groq' | 'cohere' | 'mock',
           model: data.model,
-          modelLabel: data.modelLabel,
         },
       });
+
+      // If this was the first prompt, categorize it to generate a title
+      if (isFirstPrompt) {
+        try {
+          const response = await categorizeNodes({
+            nodes: [
+              {
+                id: 'initial-prompt',
+                content: data.prompt,
+              },
+            ],
+            modelConfig: {
+              provider: data.provider,
+              model: data.model,
+            },
+          });
+
+          if (response.success && response.category) {
+            setFileName(response.category);
+          }
+        } catch (error) {
+          console.error('Failed to categorize prompt for title:', error);
+        }
+      }
     },
-    [generateIdeas]
+    [generateIdeas, state.nodes]
   );
 
   const handleNodeGenerate = useCallback(

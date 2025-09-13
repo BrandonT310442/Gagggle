@@ -51,3 +51,25 @@ export class ApiClient {
 }
 
 export const apiClient = new ApiClient();
+
+export interface CategorizeRequest {
+  nodes: Array<{
+    id: string;
+    content: string;
+  }>;
+  modelConfig?: {
+    provider: string;
+    model?: string;
+  };
+}
+
+export interface CategorizeResponse {
+  success: boolean;
+  category: string;
+  nodeIds: string[];
+  generationTime: number;
+}
+
+export async function categorizeNodes(request: CategorizeRequest): Promise<CategorizeResponse> {
+  return apiClient.post<CategorizeResponse>('/api/categorize', request);
+}

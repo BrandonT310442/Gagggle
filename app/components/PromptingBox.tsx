@@ -183,8 +183,8 @@ export default function PromptingBox({
 
   const llmProviders = [
     {
-      value: 'groq',
-      label: 'Llama 3.1 8B',
+      value: 'groq-instant',
+      label: 'Llama 3.1 8B Instant',
       provider: 'groq',
       model: 'llama-3.1-8b-instant',
     },
@@ -193,12 +193,6 @@ export default function PromptingBox({
       label: 'Llama 3.3 70B',
       provider: 'groq',
       model: 'llama-3.3-70b-versatile',
-    },
-    {
-      value: 'groq-guard',
-      label: 'Llama Guard 4',
-      provider: 'groq',
-      model: 'meta-llama/llama-guard-4-12b',
     },
     {
       value: 'openai-120b',
