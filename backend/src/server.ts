@@ -5,7 +5,8 @@ import dotenv from 'dotenv';
 import { generateIdeas } from './generation/generate';
 import { mergeIdeas } from './merge/merge';
 import { validateRequest, generateIdeasSchema, mergeIdeasSchema } from './utils/validation';
-import { APIError } from './types';
+import { APIError, LLMProviderType } from './types';
+import { getAvailableModels, AVAILABLE_MODELS } from './llm/provider';
 
 // Load environment variables
 dotenv.config();
@@ -25,6 +26,50 @@ app.get('/health', (req, res) => {
     timestamp: new Date().toISOString(),
     provider: process.env.LLM_PROVIDER || 'mock'
   });
+});
+
+// Available models endpoint
+app.get('/api/models', (req, res) => {
+  try {
+    const { provider } = req.query;
+    
+    if (provider && typeof provider === 'string') {
+      // Get models for specific provider
+      const providerType = provider as LLMProviderType;
+      if (!Object.keys(AVAILABLE_MODELS).includes(providerType)) {
+        return res.status(400).json({
+          success: false,
+          error: `Unknown provider: ${provider}. Available providers: ${Object.keys(AVAILABLE_MODELS).join(', ')}`
+        });
+      }
+      
+      res.json({
+        success: true,
+        provider: providerType,
+        models: getAvailableModels(providerType)
+      });
+    } else {
+      // Get all available models
+      res.json({
+        success: true,
+        providers: AVAILABLE_MODELS,
+        usage: {
+          generateEndpoint: '/api/generate',
+          mergeEndpoint: '/api/merge',
+          modelConfig: {
+            provider: 'groq | cohere | mock',
+            model: 'specific_model_name (optional)'
+          }
+        }
+      });
+    }
+  } catch (error) {
+    console.error('Models endpoint error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to retrieve available models'
+    });
+  }
 });
 
 // Generate ideas endpoint

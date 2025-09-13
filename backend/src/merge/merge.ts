@@ -43,7 +43,7 @@ function renderTemplate(template: string, data: Record<string, any>): string {
 
 export async function mergeIdeas(request: MergeIdeasRequest): Promise<MergeIdeasResponse> {
   const startTime = Date.now();
-  const provider = getLLMProvider();
+  const provider = getLLMProvider(request.modelConfig);
   
   try {
     // Extract idea contents
@@ -73,7 +73,7 @@ export async function mergeIdeas(request: MergeIdeasRequest): Promise<MergeIdeas
     };
     
     // Render the prompt
-    const fullPrompt = renderTemplate(template, templateData);
+    renderTemplate(template, templateData);
     
     // Call LLM provider
     const mergedContent = await provider.mergeIdeas({

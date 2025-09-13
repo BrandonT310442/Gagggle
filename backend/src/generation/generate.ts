@@ -30,7 +30,7 @@ function renderTemplate(template: string, data: Record<string, any>): string {
 
 export async function generateIdeas(request: GenerateIdeasRequest): Promise<GenerateIdeasResponse> {
   const startTime = Date.now();
-  const provider = getLLMProvider();
+  const provider = getLLMProvider(request.modelConfig);
   
   try {
     // Determine which prompt template to use

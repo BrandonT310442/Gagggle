@@ -8,15 +8,18 @@
     "start": "next start",
     "lint": "eslint",
     "backend": "ts-node --project tsconfig.backend.json backend/src/server.ts",
-    "backend:dev": "nodemon --watch backend/src --ext ts --exec ts-node --project tsconfig.backend.json backend/src/server.ts"
+    "backend:dev": "nodemon --watch backend/src --ext ts --exec ts-node --project tsconfig.backend.json backend/src/server.ts",
+    "ai-client": "ts-node --project tsconfig.backend.json backend/scripts/ai-client.ts"
   },
   "dependencies": {
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.3",
     "body-parser": "^2.2.0",
+    "cohere-ai": "^7.19.0",
     "cors": "^2.8.5",
     "dotenv": "^17.2.2",
     "express": "^5.1.0",
+    "groq-sdk": "^0.32.0",
     "next": "15.5.3",
     "react": "19.1.0",
     "react-dom": "19.1.0",

@@ -42,6 +42,7 @@ export interface GenerateIdeasRequest {
     style?: 'brief' | 'detailed' | 'creative';
     domain?: string; // e.g., "technical", "marketing", "design"
   };
+  modelConfig?: ModelConfig; // Optional model selection
 }
 
 export interface GenerateIdeasResponse {
@@ -62,6 +63,7 @@ export interface MergeIdeasRequest {
   }>;
   mergePrompt?: string; // Optional user-provided merge instruction
   mergeStrategy?: 'synthesize' | 'combine' | 'abstract' | 'contrast';
+  modelConfig?: ModelConfig; // Optional model selection
 }
 
 export interface MergeIdeasResponse {
@@ -78,6 +80,15 @@ export interface LLMProvider {
   generateIdeas(params: LLMGenerationParams): Promise<string[]>;
   mergeIdeas(params: LLMMergeParams): Promise<string>;
   getTokenCount?(text: string): number;
+  setModel?(model: string): void;
+  getModel?(): string;
+}
+
+export type LLMProviderType = 'mock' | 'groq' | 'cohere';
+
+export interface ModelConfig {
+  provider: LLMProviderType;
+  model?: string;
 }
 
 export interface LLMGenerationParams {
