@@ -41,6 +41,33 @@ function renderTemplate(template: string, data: Record<string, any>): string {
   return rendered;
 }
 
+// Parse LLM output for merge responses
+function parseMergeOutput(text: string): string {
+  // First try to parse as JSON
+  try {
+    // Clean the text - remove markdown code blocks if present
+    const cleanedText = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+    
+    const parsed = JSON.parse(cleanedText);
+    
+    // Check for merged response
+    if (parsed.merged && typeof parsed.merged === 'string') {
+      return parsed.merged;
+    }
+    
+    // Check if it's a string directly
+    if (typeof parsed === 'string') {
+      return parsed;
+    }
+  } catch (e) {
+    // JSON parsing failed, use the text as-is
+    console.log('JSON parsing failed for merge, using raw text');
+  }
+  
+  // Fallback: clean and return the text
+  return text.trim();
+}
+
 export async function mergeIdeas(request: MergeIdeasRequest): Promise<MergeIdeasResponse> {
   const startTime = Date.now();
   const provider = getLLMProvider(request.modelConfig);
@@ -49,21 +76,15 @@ export async function mergeIdeas(request: MergeIdeasRequest): Promise<MergeIdeas
     // Extract idea contents
     const ideaContents = request.nodes.map(node => node.content);
     
-    // Determine which template to use
-    const hasUserInstruction = !!request.mergePrompt;
+    // Use unified merge template
+    const template = loadPromptTemplate('unified-merge.md');
     const strategy = request.mergeStrategy || 'synthesize';
-    
-    // Choose template based on whether we have custom instructions
-    const templateFile = hasUserInstruction || strategy !== 'synthesize' 
-      ? 'merge-strategies.md' 
-      : 'merge-default.md';
-    
-    const template = loadPromptTemplate(templateFile);
     
     // Prepare template data
     const templateData = {
-      ideas: ideaContents,
-      strategy: strategy,
+      nodes: request.nodes,
+      nodeCount: request.nodes.length,
+      mergeStrategy: strategy,
       userInstruction: request.mergePrompt,
       // Set flags for each strategy
       synthesize: strategy === 'synthesize',
@@ -73,15 +94,18 @@ export async function mergeIdeas(request: MergeIdeasRequest): Promise<MergeIdeas
     };
     
     // Render the prompt
-    renderTemplate(template, templateData);
+    const fullPrompt = renderTemplate(template, templateData);
     
-    // Call LLM provider
-    const mergedContent = await provider.mergeIdeas({
-      ideas: ideaContents,
-      mergeInstruction: request.mergePrompt,
+    // Call LLM provider - we expect a single merged response
+    const response = await provider.mergeIdeas({
+      ideas: [fullPrompt], // Pass prompt as single item
+      mergeInstruction: '',
       strategy: strategy,
       temperature: 0.7
     });
+    
+    // Parse the response
+    const mergedContent = parseMergeOutput(response);
     
     // Create the merged IdeaNode
     const mergedIdea: IdeaNode = {
