@@ -2,6 +2,8 @@ import express from 'express';
 import cors from 'cors';
 import bodyParser from 'body-parser';
 import dotenv from 'dotenv';
+import { createServer } from 'http';
+import { Server } from 'socket.io';
 import { generateIdeas } from './generation/generate';
 import { mergeIdeas } from './merge/merge';
 import { validateRequest, generateIdeasSchema, mergeIdeasSchema } from './utils/validation';
@@ -12,7 +14,31 @@ import { getAvailableModels, AVAILABLE_MODELS } from './llm/provider';
 dotenv.config();
 
 const app = express();
+const httpServer = createServer(app);
+const io = new Server(httpServer, {
+  cors: {
+    origin: "http://localhost:3000",
+    methods: ["GET", "POST"]
+  }
+});
+
 const PORT = process.env.PORT || 3001;
+
+// Enhanced room management for cursor sharing
+interface UserCursor {
+  userId: string;
+  x: number;
+  y: number;
+  color: string;
+  lastSeen: number;
+}
+
+interface Room {
+  users: Set<string>;
+  cursors: Map<string, UserCursor>;
+}
+
+const rooms = new Map<string, Room>();
 
 // Middleware
 app.use(cors());
@@ -122,6 +148,74 @@ app.post('/api/merge',
   }
 );
 
+// Enhanced cursor sharing WebSocket handler
+io.on('connection', (socket) => {
+  const { roomId, userId } = socket.handshake.query;
+  
+  if (!roomId || !userId) {
+    socket.disconnect();
+    return;
+  }
+
+  console.log(`User ${userId} joined room ${roomId}`);
+  
+  // Join room
+  socket.join(roomId as string);
+  
+  // Initialize room if it doesn't exist
+  if (!rooms.has(roomId as string)) {
+    rooms.set(roomId as string, {
+      users: new Set(),
+      cursors: new Map()
+    });
+  }
+  
+  const room = rooms.get(roomId as string)!;
+  room.users.add(userId as string);
+
+  // Send existing cursor positions to the new user
+  const existingCursors = Array.from(room.cursors.values());
+  if (existingCursors.length > 0) {
+    console.log(`Sending ${existingCursors.length} existing cursors to new user ${userId}`);
+    existingCursors.forEach(cursor => {
+      socket.emit('cursor-move', cursor);
+    });
+  }
+
+  // Handle cursor movement
+  socket.on('cursor-move', (data) => {
+    console.log(`Broadcasting cursor data from ${userId} to room ${roomId}:`, data);
+    
+    // Store/update cursor position in room state
+    room.cursors.set(userId as string, {
+      ...data,
+      lastSeen: Date.now()
+    });
+    
+    // Broadcast to all other users in the room
+    socket.to(roomId as string).emit('cursor-move', data);
+  });
+
+  // Handle disconnection
+  socket.on('disconnect', () => {
+    console.log(`User ${userId} left room ${roomId}`);
+    
+    const room = rooms.get(roomId as string);
+    if (room) {
+      room.users.delete(userId as string);
+      room.cursors.delete(userId as string);
+      
+      if (room.users.size === 0) {
+        rooms.delete(roomId as string);
+        console.log(`Room ${roomId} deleted (empty)`);
+      } else {
+        // Notify others that user left
+        socket.to(roomId as string).emit('user-left', userId);
+      }
+    }
+  });
+});
+
 // Error handling middleware
 app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
   console.error('Unhandled error:', err);
@@ -141,12 +235,13 @@ app.use((req, res) => {
 
 // Start server
 if (require.main === module) {
-  app.listen(PORT, () => {
+  httpServer.listen(PORT, () => {
     console.log(`🚀 BrainstormBoard Backend Server running on port ${PORT}`);
     console.log(`🤖 Using LLM Provider: ${process.env.LLM_PROVIDER || 'mock'}`);
     console.log(`📍 Health check: http://localhost:${PORT}/health`);
     console.log(`📍 Generate ideas: POST http://localhost:${PORT}/api/generate`);
     console.log(`📍 Merge ideas: POST http://localhost:${PORT}/api/merge`);
+    console.log(`🖱️  Real-time cursor sharing enabled`);
   });
 }
 
