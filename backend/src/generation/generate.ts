@@ -1,77 +1,70 @@
 import { GenerateIdeasRequest, GenerateIdeasResponse, IdeaNode } from '../types';
-import { getLLMProvider } from '../llm/provider';
+import { GenerationWorkflow } from './langgraph/workflow/generationGraph';
+import { NodeConfig } from './langgraph/types';
 import { generateId } from '../utils/validation';
-import * as fs from 'fs';
-import * as path from 'path';
 
-// Load prompt templates
-function loadPromptTemplate(filename: string): string {
-  const promptPath = path.join(__dirname, 'prompts', filename);
-  return fs.readFileSync(promptPath, 'utf-8');
-}
-
-// Simple template replacement
-function renderTemplate(template: string, data: Record<string, any>): string {
-  let rendered = template;
-  
-  // Replace simple variables {{variable}}
-  Object.keys(data).forEach(key => {
-    const regex = new RegExp(`{{${key}}}`, 'g');
-    rendered = rendered.replace(regex, data[key] || '');
-  });
-  
-  // Handle conditionals {{#if variable}}...{{/if}}
-  rendered = rendered.replace(/{{#if (\w+)}}([\s\S]*?){{\/if}}/g, (match, variable, content) => {
-    return data[variable] ? content : '';
-  });
-  
-  return rendered;
+// Helper function to get default model for provider
+function getDefaultModel(provider: string): string {
+  switch (provider) {
+    case 'groq':
+      return 'llama-3.3-70b-versatile';
+    case 'cohere':
+      return 'command-r-plus';
+    case 'mock':
+      return 'mock-model';
+    default:
+      return 'default-model';
+  }
 }
 
 export async function generateIdeas(request: GenerateIdeasRequest): Promise<GenerateIdeasResponse> {
   const startTime = Date.now();
-  const provider = getLLMProvider(request.modelConfig);
   
   try {
-    // Determine which prompt template to use
-    const isExpansion = !!request.parentNode;
-    const templateFile = isExpansion ? 'expand-ideas.md' : 'generate-ideas.md';
-    const template = loadPromptTemplate(templateFile);
+    // Use default config if not provided
+    const modelConfig = request.modelConfig || { provider: 'mock' as const };
     
-    // Prepare template data
-    const templateData = {
-      prompt: request.prompt,
-      count: request.count,
-      domain: request.constraints?.domain,
-      style: request.constraints?.style,
-      maxLength: request.constraints?.maxLength,
-      parentContent: request.parentNode?.content,
-      parentMetadata: request.parentNode?.metadata ? JSON.stringify(request.parentNode.metadata) : null
+    console.log(`[Generate] Starting generation with provider: ${modelConfig.provider}, model: ${modelConfig.model}`);
+    
+    // Configure the workflow based on request
+    const nodeConfig: NodeConfig = {
+      modelProvider: modelConfig.provider,
+      modelName: modelConfig.model || getDefaultModel(modelConfig.provider),
+      temperature: 0.7,
+      maxRetries: 3,
+      timeout: 30000
     };
     
-    // Render the prompt
-    const fullPrompt = renderTemplate(template, templateData);
-    
-    // Call LLM provider
-    const generatedTexts = await provider.generateIdeas({
-      prompt: fullPrompt,
+    // Create and execute the workflow
+    const workflow = new GenerationWorkflow(nodeConfig);
+    const result = await workflow.execute({
+      prompt: request.prompt,
       count: request.count,
-      parentContext: request.parentNode?.content,
-      temperature: request.constraints?.style === 'creative' ? 0.9 : 0.7
+      parentNode: request.parentNode,
+      modelConfig: modelConfig
     });
     
-    // Convert generated texts to IdeaNodes
-    const ideas: IdeaNode[] = generatedTexts.map((text, index) => ({
+    // Check for errors
+    if (result.errors && result.errors.length > 0) {
+      console.error('[Generate] Workflow errors:', result.errors);
+      
+      // If we have no responses at all, throw an error
+      if (!result.responses || result.responses.length === 0) {
+        throw new Error(`Generation failed: ${result.errors[0].error}`);
+      }
+    }
+    
+    // Convert responses to IdeaNodes
+    const ideas: IdeaNode[] = result.responses.map(response => ({
       id: generateId(),
-      boardId: request.boardId,
-      content: text,
+      content: response.content,
       parentId: request.parentNode?.id,
       childIds: [],
       metadata: {
         generatedBy: 'ai',
         generationPrompt: request.prompt,
-        style: request.constraints?.style,
-        domain: request.constraints?.domain
+        ideaText: response.ideaText,
+        ...response.metadata
       },
       createdBy: 'system',
       createdAt: new Date(),
@@ -80,15 +73,25 @@ export async function generateIdeas(request: GenerateIdeasRequest): Promise<Gene
     
     const generationTime = Date.now() - startTime;
     
+    console.log(`[Generate] Successfully generated ${ideas.length} ideas in ${generationTime}ms`);
+    
     return {
       success: true,
       ideas,
-      promptUsed: fullPrompt,
+      promptUsed: request.prompt,
       generationTime
     };
     
   } catch (error) {
-    console.error('Error generating ideas:', error);
-    throw error;
+    const generationTime = Date.now() - startTime;
+    console.error('[Generate] Error generating ideas:', error);
+    
+    // Return error response
+    return {
+      success: false,
+      ideas: [],
+      promptUsed: request.prompt,
+      generationTime
+    };
   }
 }

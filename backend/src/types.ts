@@ -1,7 +1,6 @@
 // Core domain models
 export interface IdeaNode {
   id: string;
-  boardId: string;
   content: string;
   position?: {
     x: number;
@@ -16,9 +15,6 @@ export interface IdeaNode {
     generatedBy: 'ai' | 'user';
     generationPrompt?: string;
     mergedFrom?: string[];
-    mergeStrategy?: string;
-    style?: string;
-    domain?: string;
   };
   createdBy: string;
   createdAt: Date;
@@ -31,16 +27,10 @@ export interface IdeaNode {
 export interface GenerateIdeasRequest {
   prompt: string;
   count: number; // Number of ideas to generate (1-10)
-  boardId: string;
   parentNode?: {
     id: string;
     content: string;
     metadata?: Record<string, any>;
-  };
-  constraints?: {
-    maxLength?: number;
-    style?: 'brief' | 'detailed' | 'creative';
-    domain?: string; // e.g., "technical", "marketing", "design"
   };
   modelConfig?: ModelConfig; // Optional model selection
 }
@@ -55,14 +45,12 @@ export interface GenerateIdeasResponse {
 
 // Idea Merging
 export interface MergeIdeasRequest {
-  boardId: string;
   nodes: Array<{
     id: string;
     content: string;
     metadata?: Record<string, any>;
   }>;
   mergePrompt?: string; // Optional user-provided merge instruction
-  mergeStrategy?: 'synthesize' | 'combine' | 'abstract' | 'contrast';
   modelConfig?: ModelConfig; // Optional model selection
 }
 
@@ -70,7 +58,6 @@ export interface MergeIdeasResponse {
   success: boolean;
   mergedIdea: IdeaNode;
   sourceNodeIds: string[];
-  mergeStrategy: string;
   tokensUsed?: number;
   generationTime: number;
 }
@@ -101,9 +88,7 @@ export interface LLMGenerationParams {
 }
 
 export interface LLMMergeParams {
-  ideas: string[];
-  mergeInstruction?: string;
-  strategy: 'synthesize' | 'combine' | 'abstract' | 'contrast';
+  prompt: string;
   maxTokens?: number;
   temperature?: number;
 }

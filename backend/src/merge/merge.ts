@@ -41,6 +41,26 @@ function renderTemplate(template: string, data: Record<string, any>): string {
   return rendered;
 }
 
+// Parse LLM output for merge responses
+function parseMergeOutput(text: string): string {
+  // Try to parse as a quoted string
+  const trimmed = text.trim();
+  
+  // If it's wrapped in quotes, extract the content
+  if (trimmed.startsWith('"') && trimmed.endsWith('"')) {
+    return trimmed.slice(1, -1);
+  }
+  
+  // Try to extract the first quoted string
+  const match = text.match(/"([^"]+)"/);
+  if (match && match[1]) {
+    return match[1];
+  }
+  
+  // Fallback: return cleaned text
+  return trimmed;
+}
+
 export async function mergeIdeas(request: MergeIdeasRequest): Promise<MergeIdeasResponse> {
   const startTime = Date.now();
   const provider = getLLMProvider(request.modelConfig);
@@ -49,51 +69,37 @@ export async function mergeIdeas(request: MergeIdeasRequest): Promise<MergeIdeas
     // Extract idea contents
     const ideaContents = request.nodes.map(node => node.content);
     
-    // Determine which template to use
-    const hasUserInstruction = !!request.mergePrompt;
-    const strategy = request.mergeStrategy || 'synthesize';
-    
-    // Choose template based on whether we have custom instructions
-    const templateFile = hasUserInstruction || strategy !== 'synthesize' 
-      ? 'merge-strategies.md' 
-      : 'merge-default.md';
-    
-    const template = loadPromptTemplate(templateFile);
+    // Use unified merge template
+    const template = loadPromptTemplate('unified-merge.md');
     
     // Prepare template data
     const templateData = {
-      ideas: ideaContents,
-      strategy: strategy,
-      userInstruction: request.mergePrompt,
-      // Set flags for each strategy
-      synthesize: strategy === 'synthesize',
-      combine: strategy === 'combine',
-      abstract: strategy === 'abstract',
-      contrast: strategy === 'contrast'
+      nodes: request.nodes,
+      nodeCount: request.nodes.length,
+      userInstruction: request.mergePrompt
     };
     
     // Render the prompt
-    renderTemplate(template, templateData);
+    const fullPrompt = renderTemplate(template, templateData);
     
-    // Call LLM provider
-    const mergedContent = await provider.mergeIdeas({
-      ideas: ideaContents,
-      mergeInstruction: request.mergePrompt,
-      strategy: strategy,
+    // Call LLM provider - pass just the prompt like generate does
+    const response = await provider.mergeIdeas({
+      prompt: fullPrompt,
       temperature: 0.7
     });
+    
+    // Parse the response
+    const mergedContent = parseMergeOutput(response);
     
     // Create the merged IdeaNode
     const mergedIdea: IdeaNode = {
       id: generateId(),
-      boardId: request.boardId,
       content: mergedContent,
       childIds: [],
       metadata: {
         generatedBy: 'ai',
-        generationPrompt: request.mergePrompt || `Merged ${ideaContents.length} ideas using ${strategy} strategy`,
-        mergedFrom: request.nodes.map(n => n.id),
-        mergeStrategy: strategy
+        generationPrompt: request.mergePrompt || `Merged ${ideaContents.length} ideas`,
+        mergedFrom: request.nodes.map(n => n.id)
       },
       createdBy: 'system',
       createdAt: new Date(),
@@ -106,7 +112,6 @@ export async function mergeIdeas(request: MergeIdeasRequest): Promise<MergeIdeas
       success: true,
       mergedIdea,
       sourceNodeIds: request.nodes.map(n => n.id),
-      mergeStrategy: strategy,
       generationTime
     };
     

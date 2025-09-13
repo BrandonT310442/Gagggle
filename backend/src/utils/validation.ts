@@ -4,28 +4,28 @@ import { z } from 'zod';
 export const generateIdeasSchema = z.object({
   prompt: z.string().min(1, 'Prompt is required').max(1000),
   count: z.number().int().min(1).max(10),
-  boardId: z.string(),
   parentNode: z.object({
     id: z.string(),
     content: z.string(),
     metadata: z.record(z.string(), z.any()).optional()
   }).optional(),
-  constraints: z.object({
-    maxLength: z.number().int().min(10).max(500).optional(),
-    style: z.enum(['brief', 'detailed', 'creative']).optional(),
-    domain: z.string().optional()
+  modelConfig: z.object({
+    provider: z.enum(['mock', 'groq', 'cohere']),
+    model: z.string().optional()
   }).optional()
 });
 
 export const mergeIdeasSchema = z.object({
-  boardId: z.string(),
   nodes: z.array(z.object({
     id: z.string(),
     content: z.string(),
     metadata: z.record(z.string(), z.any()).optional()
   })).min(2, 'At least 2 nodes required').max(5),
   mergePrompt: z.string().max(500).optional(),
-  mergeStrategy: z.enum(['synthesize', 'combine', 'abstract', 'contrast']).optional()
+  modelConfig: z.object({
+    provider: z.enum(['mock', 'groq', 'cohere']),
+    model: z.string().optional()
+  }).optional()
 });
 
 // Validation middleware factory
