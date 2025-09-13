@@ -17,7 +17,7 @@ const CONFIG = {
   baseUrl: 'http://localhost:3001',
   
   // Choose operation: 'generate' or 'merge'
-  operation: 'generate', // 'generate' or 'merge'
+  operation: 'merge', // 'generate' or 'merge'
   
   // Model configuration
   modelConfig: {
@@ -27,36 +27,37 @@ const CONFIG = {
   
   // For GENERATION
   generation: {
-    prompt: 'Ways to improve user onboarding experience for a mobile app',
-    count: 3,
-    boardId: 'test-board-123',
-    // Optional: uncomment to test expansion
-    // parentNode: {
-    //   id: 'parent-123',
-    //   content: 'Implement a guided tutorial system'
-    // },
-  
+    prompt: 'Expand on this answer with specific implementation details, technical considerations, and user experience improvements. Provide a comprehensive 10-sentence expansion.',
+    count: 2,
+    // Test expansion on a parent node
+    parentNode: {
+      id: 'parent-123',
+      content: 'Create an AI-powered onboarding assistant that uses machine learning to personalize the tutorial experience based on user behavior patterns. The system should track user interactions, identify areas where users struggle, and dynamically adjust the tutorial content and pacing. Include features like contextual tooltips, interactive walkthroughs, progress tracking with gamification elements, and the ability to skip or revisit sections. The assistant should support multiple learning styles (visual, textual, hands-on) and provide real-time feedback. Integration with analytics tools will help measure onboarding success rates and identify drop-off points for continuous improvement.'
+    }
   },
   
   // For MERGE
   merge: {
-    boardId: 'test-board-123',
     nodes: [
       {
         id: 'node-1',
-        content: 'Add interactive tutorials with tooltips'
+        content: 'Implement a machine learning-based recommendation engine that analyzes user behavior patterns in real-time to suggest personalized learning paths. The system should use collaborative filtering and content-based filtering algorithms to identify similar user profiles and predict which features users are most likely to need help with. Track metrics like time spent on each section, click patterns, and error rates to continuously refine the ML model. Integration with TensorFlow.js allows for client-side inference, reducing server load and improving response times. The recommendation engine should also factor in user role, industry, and stated goals to provide contextually relevant suggestions.'
       },
       {
         id: 'node-2', 
-        content: 'Create a progress bar showing onboarding completion'
+        content: 'Build a gamified progress tracking system with achievement badges, experience points, and leveling mechanics to increase user engagement during onboarding. Create milestone-based rewards that unlock advanced features or customization options as users complete tutorial sections. Implement a leaderboard system for enterprise clients to foster friendly competition among new team members. Include streak counters for daily engagement and provide visual feedback through confetti animations and progress bars. The gamification layer should be optional and customizable based on company culture, with the ability to disable competitive elements while keeping personal achievement tracking.'
       },
       {
         id: 'node-3',
-        content: 'Implement personalized onboarding based on user type'
+        content: 'Develop an intelligent chatbot assistant powered by natural language processing that can answer questions, provide contextual help, and guide users through complex workflows. The chatbot should understand user intent through sentiment analysis and be able to escalate to human support when needed. Implement conversation memory to maintain context across multiple interactions and provide personalized responses based on user history. Include multilingual support with automatic language detection and real-time translation capabilities. The assistant should proactively offer help when detecting user frustration or confusion through behavior analysis like rage clicks or extended idle time.'
+      },
+      {
+        id: 'node-4',
+        content: 'Create an adaptive UI/UX system that dynamically adjusts the interface complexity based on user proficiency levels and learning progress. Start with a simplified interface showing only essential features, then gradually reveal advanced functionality as users demonstrate competence. Implement A/B testing frameworks to continuously optimize the onboarding flow based on conversion metrics and user feedback. Use heat mapping and session recording tools to identify pain points and areas of confusion. The system should support multiple device types with responsive design and maintain consistency across web, mobile, and desktop applications.'
       }
     ],
     mergeStrategy: 'synthesize', // 'synthesize', 'combine', 'abstract', or 'contrast'
-    mergePrompt: 'Create a comprehensive onboarding strategy'
+    mergePrompt: 'Synthesize these four advanced onboarding features into a cohesive, enterprise-ready onboarding platform architecture. Focus on how these components work together, data flow between systems, technical implementation considerations, and expected business outcomes. Provide a 12-sentence comprehensive synthesis that could serve as an executive summary for stakeholders.'
   }
 };
 
@@ -84,6 +85,12 @@ async function testGeneration() {
   console.log('Model:', CONFIG.modelConfig.model);
   console.log('Prompt:', CONFIG.generation.prompt);
   console.log('Count:', CONFIG.generation.count);
+  
+  if (CONFIG.generation.parentNode) {
+    console.log('\n📍 Expanding on parent node:');
+    console.log('  Parent ID:', CONFIG.generation.parentNode.id);
+    console.log('  Parent Content:', CONFIG.generation.parentNode.content);
+  }
   
   const requestBody = {
     ...CONFIG.generation,
@@ -137,10 +144,16 @@ async function testMerge() {
   console.log('Model:', CONFIG.modelConfig.model);
   console.log('Merge Strategy:', CONFIG.merge.mergeStrategy);
   console.log('Number of nodes:', CONFIG.merge.nodes.length);
+  console.log('\n🎯 Merge Prompt:', CONFIG.merge.mergePrompt);
   
   console.log('\n📋 Nodes to merge:');
   CONFIG.merge.nodes.forEach((node, index) => {
-    console.log(`${index + 1}. ${node.content}`);
+    console.log(`\n${index + 1}. [${node.id}]`);
+    // Show first 150 characters of each node
+    const preview = node.content.length > 150 
+      ? node.content.substring(0, 150) + '...' 
+      : node.content;
+    console.log(`   ${preview}`);
   });
   
   const requestBody = {
