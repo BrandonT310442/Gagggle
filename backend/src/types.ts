@@ -101,9 +101,7 @@ export interface LLMGenerationParams {
 }
 
 export interface LLMMergeParams {
-  ideas: string[];
-  mergeInstruction?: string;
-  strategy: 'synthesize' | 'combine' | 'abstract' | 'contrast';
+  prompt: string;
   maxTokens?: number;
   temperature?: number;
 }

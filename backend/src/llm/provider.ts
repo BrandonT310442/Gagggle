@@ -23,9 +23,12 @@ export abstract class BaseLLMProvider implements LLMProvider {
 export const AVAILABLE_MODELS = {
   groq: [
     'llama-3.1-8b-instant',
-    'llama-3.1-70b-versatile',
+    'llama-3.3-70b-versatile',
     'llama3-groq-8b-8192-tool-use-preview',
     'llama3-groq-70b-8192-tool-use-preview',
+    'meta-llama/llama-guard-4-12b',
+    'openai/gpt-oss-120b',
+    'openai/gpt-oss-20b',
     'gemma2-9b-it'
   ],
   cohere: [

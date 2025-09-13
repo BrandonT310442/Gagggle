@@ -96,11 +96,9 @@ export async function mergeIdeas(request: MergeIdeasRequest): Promise<MergeIdeas
     // Render the prompt
     const fullPrompt = renderTemplate(template, templateData);
     
-    // Call LLM provider - we expect a single merged response
+    // Call LLM provider - pass just the prompt like generate does
     const response = await provider.mergeIdeas({
-      ideas: [fullPrompt], // Pass prompt as single item
-      mergeInstruction: '',
-      strategy: strategy,
+      prompt: fullPrompt,
       temperature: 0.7
     });
     
