@@ -39,6 +39,14 @@ export const categorizeNodesSchema = z.object({
   }).optional()
 });
 
+export const generateTitleSchema = z.object({
+  input: z.string().min(1, 'Input is required').max(2000),
+  modelConfig: z.object({
+    provider: z.enum(['mock', 'groq', 'cohere']),
+    model: z.string().optional()
+  }).optional()
+});
+
 // Validation middleware factory
 export function validateRequest(schema: z.ZodSchema) {
   return (req: any, res: any, next: any) => {

@@ -16,8 +16,8 @@ const CONFIG = {
   // Backend URL
   baseUrl: 'http://localhost:3001',
   
-  // Choose operation: 'generate', 'merge', or 'categorize'
-  operation: 'categorize', // 'generate', 'merge', or 'categorize'
+  // Choose operation: 'generate', 'merge', 'categorize', or 'title'
+  operation: 'title', // 'generate', 'merge', 'categorize', or 'title'
   
   // Model configuration
   modelConfig: {
@@ -75,6 +75,16 @@ const CONFIG = {
         content: 'Create password reset flow with email verification'
       }
     ]
+  },
+  
+  // For TITLE GENERATION
+  title: {
+    inputs: [
+      // Test 1: Simple project idea
+      'I want to build a collaborative whiteboard application for remote teams to brainstorm ideas together in real-time',
+    ],
+    // Select which input to test (0-4)
+    selectedInput: 0
   }
 };
 
@@ -212,6 +222,118 @@ async function testMerge() {
   }
 }
 
+// Test title generation
+async function testTitle() {
+  console.log('\n✏️ Testing TITLE endpoint...\n');
+  console.log('Provider:', CONFIG.modelConfig.provider);
+  console.log('Model:', CONFIG.modelConfig.model || 'default');
+  
+  const selectedInput = CONFIG.title.inputs[CONFIG.title.selectedInput];
+  console.log('\n📝 Input text:');
+  console.log(selectedInput);
+  
+  const requestBody = {
+    input: selectedInput,
+    modelConfig: CONFIG.modelConfig
+  };
+  
+  console.log('\n📤 Sending request to:', `${CONFIG.baseUrl}/api/title`);
+  
+  try {
+    const response = await fetch(`${CONFIG.baseUrl}/api/title`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(requestBody)
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`HTTP error! status: ${response.status}, body: ${errorText}`);
+    }
+    
+    const data = await response.json();
+    
+    console.log('\n✅ Response received!\n');
+    console.log('Success:', data.success);
+    console.log('Generation time:', data.generationTime, 'ms');
+    console.log('\n🎯 Generated Title:\n');
+    console.log(`"${data.title}"`);
+    
+    // Test all inputs if using Cohere provider
+    if (CONFIG.modelConfig.provider === 'cohere' && CONFIG.title.selectedInput === 0) {
+      console.log('\n🔄 Testing with all sample inputs...\n');
+      
+      for (let i = 0; i < CONFIG.title.inputs.length; i++) {
+        const input = CONFIG.title.inputs[i];
+        const testBody = {
+          input: input,
+          modelConfig: CONFIG.modelConfig
+        };
+        
+        try {
+          const testResponse = await fetch(`${CONFIG.baseUrl}/api/title`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(testBody)
+          });
+          
+          if (testResponse.ok) {
+            const testData = await testResponse.json();
+            console.log(`Test ${i + 1}: "${testData.title}" (${testData.generationTime}ms)`);
+            // Show first 60 chars of input for context
+            const inputPreview = input.length > 60 ? input.substring(0, 60) + '...' : input;
+            console.log(`   Input: ${inputPreview}`);
+          }
+        } catch (err) {
+          console.log(`Test ${i + 1}: Failed - ${err.message}`);
+        }
+      }
+      
+      // Test with different Cohere models
+      console.log('\n🔄 Testing with different Cohere models...\n');
+      const cohereModels = ['command', 'command-light', 'command-r', 'command-r-plus'];
+      
+      for (const model of cohereModels) {
+        const modelTestBody = {
+          input: selectedInput,
+          modelConfig: {
+            provider: 'cohere',
+            model: model
+          }
+        };
+        
+        try {
+          const modelResponse = await fetch(`${CONFIG.baseUrl}/api/title`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(modelTestBody)
+          });
+          
+          if (modelResponse.ok) {
+            const modelData = await modelResponse.json();
+            console.log(`${model}: "${modelData.title}" (${modelData.generationTime}ms)`);
+          }
+        } catch (err) {
+          console.log(`${model}: Failed - ${err.message}`);
+        }
+      }
+    }
+    
+    if (CONFIG.modelConfig.provider === 'mock') {
+      console.log('\n⚠️  Note: Using mock provider - responses are simulated');
+    }
+    
+  } catch (error) {
+    console.error('\n❌ Error:', error.message);
+  }
+}
+
 // Test categorization
 async function testCategorize() {
   console.log('\n📂 Testing CATEGORIZE endpoint...');
@@ -285,8 +407,10 @@ async function main() {
     await testMerge();
   } else if (CONFIG.operation === 'categorize') {
     await testCategorize();
+  } else if (CONFIG.operation === 'title') {
+    await testTitle();
   } else {
-    console.error('❌ Invalid operation. Choose "generate", "merge", or "categorize"');
+    console.error('❌ Invalid operation. Choose "generate", "merge", "categorize", or "title"');
   }
   
   console.log('\n========================================\n');

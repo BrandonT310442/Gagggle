@@ -1,5 +1,5 @@
 import { BaseLLMProvider } from './provider';
-import { LLMGenerationParams, LLMMergeParams } from '../types';
+import { LLMGenerationParams, LLMMergeParams, LLMTitleParams } from '../types';
 
 export class MockLLMProvider extends BaseLLMProvider {
   async generateIdeas(params: LLMGenerationParams): Promise<string[]> {
@@ -35,23 +35,46 @@ export class MockLLMProvider extends BaseLLMProvider {
   }
   
   async mergeIdeas(params: LLMMergeParams): Promise<string> {
-    const { ideas, mergeInstruction, strategy } = params;
+    // Mock implementation - just return a simple merged idea
+    const { prompt } = params;
     
-    if (mergeInstruction) {
-      return `Merged based on "${mergeInstruction}": Combined concepts from ${ideas.length} ideas`;
-    }
+    // Extract some context from the prompt if possible
+    const lowerPrompt = prompt.toLowerCase();
     
-    switch (strategy) {
-      case 'synthesize':
-        return `Synthesis: A unified approach combining the best aspects of all ${ideas.length} ideas`;
-      case 'combine':
-        return `Combination: All ${ideas.length} ideas working together in parallel`;
-      case 'abstract':
-        return `Abstraction: High-level concept derived from the ${ideas.length} core ideas`;
-      case 'contrast':
-        return `Contrast: Exploring the differences and tensions between the ${ideas.length} ideas`;
-      default:
-        return `Merged ${ideas.length} ideas into a cohesive concept`;
+    if (lowerPrompt.includes('synthesize')) {
+      return 'Synthesis: A unified approach combining the best aspects of all ideas';
+    } else if (lowerPrompt.includes('combine')) {
+      return 'Combination: All ideas working together in parallel';
+    } else if (lowerPrompt.includes('abstract')) {
+      return 'Abstraction: High-level concept derived from the core ideas';
+    } else if (lowerPrompt.includes('contrast')) {
+      return 'Contrast: Exploring the differences and tensions between the ideas';
+    } else {
+      return 'Merged ideas into a cohesive concept that incorporates all key elements';
     }
+  }
+
+  async generateTitle(params: LLMTitleParams): Promise<string> {
+    // Mock implementation - generate a simple title based on the prompt
+    const { prompt } = params;
+    
+    // Extract some keywords from the prompt for a mock title
+    const words = prompt.toLowerCase().split(/\s+/);
+    const keywords = ['app', 'system', 'platform', 'service', 'tool', 'project', 'solution'];
+    
+    // Find a keyword in the prompt or use a default
+    const foundKeyword = keywords.find(k => words.includes(k)) || 'Project';
+    
+    // Generate mock titles
+    const mockTitles = [
+      `Innovative ${foundKeyword} Ideas`,
+      `${foundKeyword} Brainstorming Session`,
+      `Creative ${foundKeyword} Solutions`,
+      `${foundKeyword} Development Planning`,
+      `Next-Gen ${foundKeyword} Concepts`
+    ];
+    
+    // Return a random mock title
+    return mockTitles[Math.floor(Math.random() * mockTitles.length)];
   }
 }

@@ -5,11 +5,12 @@ import dotenv from 'dotenv';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import { generateIdeas } from './generation/generate';
+import { generateTitle } from './title/title';
 import { mergeIdeas } from './merge/merge';
 import { categorizeNodes } from './categorize/categorize';
 import { exportGraphToMarkdown, getGraphDebugInfo } from './export/export.service';
 import { graphStore } from './graph/graphStore';
-import { validateRequest, generateIdeasSchema, mergeIdeasSchema, categorizeNodesSchema } from './utils/validation';
+import { validateRequest, generateIdeasSchema, mergeIdeasSchema, categorizeNodesSchema, generateTitleSchema } from './utils/validation';
 import { APIError, LLMProviderType } from './types';
 import { getAvailableModels, AVAILABLE_MODELS } from './llm/provider';
 
@@ -20,8 +21,14 @@ const app = express();
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
   cors: {
-    origin: "http://localhost:3000",
-    methods: ["GET", "POST"]
+    origin: [
+      "http://localhost:3000",
+      /^http:\/\/192\.168\.\d+\.\d+:3000$/,  // Allow local network IPs
+      /^http:\/\/10\.\d+\.\d+\.\d+:3000$/,   // Allow 10.x.x.x network
+      /^http:\/\/172\.\d+\.\d+\.\d+:3000$/   // Allow 172.x.x.x network
+    ],
+    methods: ["GET", "POST"],
+    credentials: true
   }
 });
 
@@ -44,7 +51,15 @@ interface Room {
 const rooms = new Map<string, Room>();
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: [
+    "http://localhost:3000",
+    /^http:\/\/192\.168\.\d+\.\d+:3000$/,  // Allow local network IPs
+    /^http:\/\/10\.\d+\.\d+\.\d+:3000$/,   // Allow 10.x.x.x network
+    /^http:\/\/172\.\d+\.\d+\.\d+:3000$/   // Allow 172.x.x.x network
+  ],
+  credentials: true
+}));
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
@@ -176,6 +191,31 @@ app.post('/api/categorize',
   }
 );
 
+// Generate title endpoint
+app.post('/api/title',
+  validateRequest(generateTitleSchema),
+  async (req, res) => {
+    try {
+      const result = await generateTitle(req.body);
+      res.json(result);
+    } catch (error) {
+      console.error('Title generation error:', error);
+      if (error instanceof APIError) {
+        res.status(error.statusCode).json({
+          success: false,
+          error: error.message,
+          code: error.code
+        });
+      } else {
+        res.status(500).json({
+          success: false,
+          error: 'Internal server error during title generation'
+        });
+      }
+    }
+  }
+);
+
 // Export endpoints
 app.get('/api/export', (req, res) => {
   try {
@@ -240,8 +280,6 @@ io.on('connection', (socket) => {
 
   // Handle cursor movement
   socket.on('cursor-move', (data) => {
-    console.log(`Broadcasting cursor data from ${userId} to room ${roomId}:`, data);
-    
     // Store/update cursor position in room state
     room.cursors.set(userId as string, {
       ...data,
@@ -292,12 +330,13 @@ app.use((req, res) => {
 // Start server
 if (require.main === module) {
   httpServer.listen(PORT, () => {
-    console.log(`🚀 BrainstormBoard Backend Server running on port ${PORT}`);
+    console.log(`🚀 BrainstormBoard Backend Server running on all interfaces port ${PORT}`);
     console.log(`🤖 Using LLM Provider: ${process.env.LLM_PROVIDER || 'mock'}`);
     console.log(`📍 Health check: http://localhost:${PORT}/health`);
     console.log(`📍 Generate ideas: POST http://localhost:${PORT}/api/generate`);
     console.log(`📍 Merge ideas: POST http://localhost:${PORT}/api/merge`);
     console.log(`🖱️  Real-time cursor sharing enabled`);
+    console.log(`🌐 Backend accessible on local network - run 'chmod +x scripts/get-local-ip.sh && ./scripts/get-local-ip.sh' to get your IP`);
   });
 }
 
