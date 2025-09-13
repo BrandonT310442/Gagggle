@@ -3,9 +3,16 @@
 import { useState } from 'react';
 
 // TypeScript interfaces
+interface DropdownOption {
+  value: string;
+  label: string;
+  provider?: string;
+  model?: string;
+}
+
 interface DropdownProps {
   value: string;
-  options: { value: string; label: string; icon?: boolean }[];
+  options: DropdownOption[];
   onChange: (value: string) => void;
   placeholder?: string;
 }
@@ -13,6 +20,7 @@ interface DropdownProps {
 interface PromptingBoxProps {
   onSubmit?: (data: {
     provider: string;
+    model?: string;
     ideaCount: string;
     prompt: string;
   }) => void;
@@ -20,19 +28,44 @@ interface PromptingBoxProps {
 
 // SVG Icons as React components - matching Figma design exactly
 const CohereIcon = () => {
-  const img = "http://localhost:3845/assets/5893bd7ed4010f2c8e54d9e5221aba3a3a316ef2.svg";
-  const img1 = "http://localhost:3845/assets/3cb6c3cff6be564cca614b5434e00958972334af.svg";
+  const img = '/cohere-icon-mask.svg';
+  const img1 = '/cohere-icon.svg';
 
   return (
-    <div className="relative w-4 h-4" data-name="cohere">
-      <div className="absolute aspect-[47.6509/48.8571] left-0 right-0 top-1/2 translate-y-[-50%]" data-name="cohere">
-        <div className="absolute inset-0 mask-alpha mask-intersect mask-no-clip mask-no-repeat mask-position-[0px] mask-size-[47.651px_48.857px]" data-name="Group" style={{ maskImage: `url('${img}')` }}>
-          <img alt="" className="block max-w-none size-full" src={img1} />
-        </div>
+    <div className='relative w-4 h-4' data-name='cohere'>
+      <div
+        className='absolute inset-0 mask-alpha mask-intersect mask-no-clip mask-no-repeat mask-position-[0px] mask-size-[47.651px_48.857px]'
+        data-name='Group'
+        style={{ maskImage: `url('${img}')` }}
+      >
+        <img alt='Cohere' className='block max-w-none size-full' src={img1} />
       </div>
     </div>
   );
 };
+
+const MetaIcon = () => {
+  const imgImage1 = '/meta-icon.png';
+
+  return (
+    <div
+      className='w-4 h-4 bg-center bg-cover bg-no-repeat'
+      data-name='image 1'
+      style={{ backgroundImage: `url('${imgImage1}')` }}
+    />
+  );
+};
+
+const OpenAIIcon = () => {
+  const img = '/openai-icon.svg';
+
+  return (
+    <div className='relative w-4 h-4' data-name='Vector'>
+      <img alt='OpenAI' className='block max-w-none size-full' src={img} />
+    </div>
+  );
+};
+
 
 const ExpandMoreIcon = () => (
   <svg
@@ -75,6 +108,19 @@ function Dropdown({ value, options, onChange, placeholder }: DropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
   const selectedOption = options.find((opt) => opt.value === value);
 
+  const getModelIcon = (optionValue: string, provider?: string) => {
+    if (optionValue.includes('openai') || optionValue.includes('gpt')) {
+      return <OpenAIIcon />;
+    }
+    if (optionValue.includes('meta') || optionValue.includes('llama') || provider === 'groq') {
+      return <MetaIcon />;
+    }
+    if (provider === 'cohere') {
+      return <CohereIcon />;
+    }
+    return null;
+  };
+
   return (
     <div className='relative'>
       <button
@@ -85,7 +131,8 @@ function Dropdown({ value, options, onChange, placeholder }: DropdownProps) {
         aria-haspopup='listbox'
       >
         <div className='flex gap-1 items-center justify-start relative shrink-0'>
-          {selectedOption?.icon && <CohereIcon />}
+          {selectedOption &&
+            getModelIcon(selectedOption.value, selectedOption.provider)}
           <div className='font-sans text-xs font-normal leading-4 text-black whitespace-nowrap'>
             {selectedOption?.label || placeholder}
           </div>
@@ -95,7 +142,7 @@ function Dropdown({ value, options, onChange, placeholder }: DropdownProps) {
 
       {isOpen && (
         <div
-          className='absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded shadow-lg z-10 min-w-full'
+          className='absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded shadow-lg z-10 min-w-full max-h-32 overflow-y-auto'
           role='listbox'
         >
           {options.map((option) => (
@@ -107,9 +154,8 @@ function Dropdown({ value, options, onChange, placeholder }: DropdownProps) {
                 onChange(option.value);
                 setIsOpen(false);
               }}
-              aria-selected={value === option.value}
             >
-              {option.icon && <CohereIcon />}
+              {getModelIcon(option.value, option.provider)}
               <span className='font-sans text-xs font-normal leading-4 text-black'>
                 {option.label}
               </span>
@@ -123,11 +169,54 @@ function Dropdown({ value, options, onChange, placeholder }: DropdownProps) {
 
 // Main PromptingBox Component matching Figma design exactly
 export default function PromptingBox({ onSubmit }: PromptingBoxProps) {
-  const [llmProvider, setLlmProvider] = useState('cohere');
+  const [llmProvider, setLlmProvider] = useState('groq');
   const [ideaCount, setIdeaCount] = useState('3');
   const [prompt, setPrompt] = useState('');
 
-  const llmProviders = [{ value: 'cohere', label: 'Cohere', icon: true }];
+  const llmProviders = [
+    {
+      value: 'groq',
+      label: 'Llama 3.3 70B (Groq)',
+      provider: 'groq',
+      model: 'llama-3.3-70b-versatile',
+    },
+    {
+      value: 'groq-tool',
+      label: 'Llama 3 70B Tool Use (Groq)',
+      provider: 'groq',
+      model: 'llama3-groq-70b-8192-tool-use-preview',
+    },
+    {
+      value: 'groq-guard',
+      label: 'Llama Guard 4 (Groq)',
+      provider: 'groq',
+      model: 'meta-llama/llama-guard-4-12b',
+    },
+    {
+      value: 'openai-120b',
+      label: 'GPT OSS 120B (OpenAI)',
+      provider: 'groq',
+      model: 'openai/gpt-oss-120b',
+    },
+    {
+      value: 'openai-20b',
+      label: 'GPT OSS 20B (OpenAI)',
+      provider: 'groq',
+      model: 'openai/gpt-oss-20b',
+    },
+    {
+      value: 'cohere-r',
+      label: 'Command R (Cohere)',
+      provider: 'cohere',
+      model: 'command-r',
+    },
+    {
+      value: 'cohere-r-plus',
+      label: 'Command R+ (Cohere)',
+      provider: 'cohere',
+      model: 'command-r-plus',
+    },
+  ];
 
   const ideaCounts = [
     { value: '1', label: '1 idea' },
@@ -138,8 +227,12 @@ export default function PromptingBox({ onSubmit }: PromptingBoxProps) {
 
   const handleSubmit = () => {
     if (prompt.trim() && onSubmit) {
+      const selectedProvider = llmProviders.find(
+        (p) => p.value === llmProvider
+      );
       onSubmit({
-        provider: llmProvider,
+        provider: selectedProvider?.provider || 'mock',
+        model: selectedProvider?.model,
         ideaCount,
         prompt: prompt.trim(),
       });
