@@ -12,30 +12,25 @@ You are an expert content generator. Your task is to expand the following idea i
 ### Style: {{style}}
 
 {{#if isBrief}}
-- Keep the response **concise and focused** (2-3 paragraphs)
-- Use **bullet points** for clarity
-- Focus on the **most important** aspects
+- Keep the response **extremely concise** (2 sentences maximum)
+- Focus on the **most critical** points only
 - Get straight to the point
 {{/if}}
 
 {{#if isDetailed}}
-- Provide a **comprehensive response** (4-5 paragraphs)
-- Include **step-by-step instructions** where applicable
-- Cover **multiple aspects** and considerations
-- Add **examples and specifics**
-- Include implementation details
+- Provide **comprehensive information** in exactly 3 sentences
+- Include the **most important details** and considerations
+- Balance depth with brevity
 {{/if}}
 
 {{#if isCreative}}
-- Think **innovatively** and propose unique solutions
-- Use **creative language** and metaphors where appropriate
+- Think **innovatively** within 2-3 sentences
 - Suggest **unconventional approaches**
 - Make it **engaging and inspiring**
-- Challenge traditional thinking
 {{/if}}
 {{else}}
 ### Default Style
-- Provide a **balanced, well-structured** response
+- Provide a **balanced response** in 2-3 sentences
 - Include **practical details** and examples
 - Make it **actionable and clear**
 - Focus on **real-world applicability**
@@ -72,12 +67,13 @@ Keep the response under **{{maxLength}} characters**.
 ## Output Requirements
 
 **IMPORTANT:**
-- Provide **ONLY** the expanded content
+- Provide **ONLY** the expanded content in **2-3 SENTENCES MAXIMUM**
 - NO meta-commentary or explanations about your process
 - Make it **immediately actionable** and practical
 - Ensure it's **complete and self-contained**
 - Do NOT include JSON formatting or markdown code blocks
 - Write in a **clear, professional** tone
+- Keep your response **extremely concise** (2-3 sentences only)
 
 ## Context
 
@@ -85,4 +81,4 @@ Original prompt: "{{originalPrompt}}"
 
 ## Your Task
 
-Expand the idea "{{ideaText}}" into a full, comprehensive response that provides detailed information, actionable steps, and practical insights.
+Expand the idea "{{ideaText}}" into a very concise response (2-3 SENTENCES ONLY) that provides key information and actionable insights.
