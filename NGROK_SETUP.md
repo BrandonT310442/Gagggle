@@ -122,15 +122,37 @@ app.use(cors({
 }));
 ```
 
-## Step 5: Share & Test
+## Step 5: Update Frontend Configuration (Automated)
 
-### 5.1 Get the shareable URL
+### 5.1 Use the automated script
+Instead of manually editing the frontend file, use the provided script:
+
+```bash
+./update-ngrok-url.sh
+```
+
+This script will:
+- Automatically fetch your current backend ngrok URL
+- Update `app/page.tsx` with the correct URL
+- Show you the frontend URL to share
+
+### 5.2 Manual alternative
+If you prefer to do it manually, update line 49 in `app/page.tsx`:
+```typescript
+const backendUrl = window.location.hostname === 'localhost' 
+  ? 'http://localhost:3001'
+  : 'https://YOUR_NEW_BACKEND_URL'; // Replace with current backend tunnel
+```
+
+## Step 6: Share & Test
+
+### 6.1 Get the shareable URL
 The frontend tunnel URL is what you share:
 ```
 https://xyz789.ngrok-free.app/?room=YOUR_ROOM_ID
 ```
 
-### 5.2 Test the connection
+### 6.2 Test the connection
 - Local users: `http://localhost:3000/?room=YOUR_ROOM_ID`
 - Remote users: `https://xyz789.ngrok-free.app/?room=YOUR_ROOM_ID`
 
@@ -139,6 +161,11 @@ Both should connect to the same backend and see each other's real-time activity.
 ## Troubleshooting
 
 ### Common Issues
+
+**"Connecting..." in red (most common):**
+- This means your frontend is trying to connect to an old/wrong backend URL
+- **Solution**: Run `./update-ngrok-url.sh` to fix it automatically
+- **Manual fix**: Update the backend URL in `app/page.tsx` line 49
 
 **"Connecting..." stuck:**
 - Check if both tunnels are running: `curl -s http://localhost:4040/api/tunnels`
@@ -212,8 +239,15 @@ for tunnel in data['tunnels']:
 1. Start backend (`npm run backend:dev`)
 2. Start frontend (`npm run dev`) 
 3. Start ngrok tunnels (`ngrok start --all`)
+4. **Update frontend URLs (`./update-ngrok-url.sh`)** ⚡
+5. Share frontend tunnel URL with collaborators
+
+### Alternative Manual Checklist
+1. Start backend (`npm run backend:dev`)
+2. Start frontend (`npm run dev`) 
+3. Start ngrok tunnels (`ngrok start --all`)
 4. Get tunnel URLs (`curl localhost:4040/api/tunnels`)
-5. Update frontend with new backend tunnel URL
+5. Manually update `app/page.tsx` line 49 with new backend URL
 6. Share frontend tunnel URL with collaborators
 
 ## Pro Tips

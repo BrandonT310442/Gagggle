@@ -46,7 +46,7 @@ export default function CursorDemo() {
     // Use localhost for local development, ngrok backend for remote access
     const backendUrl = window.location.hostname === 'localhost' 
       ? 'http://localhost:3001'
-      : 'https://130e0015f42a.ngrok-free.app'; // Backend ngrok tunnel
+      : 'https://e77662780c94.ngrok-free.app'; // Backend ngrok tunnel
     
     const newSocket = io(backendUrl, {
       query: { roomId, userId },
