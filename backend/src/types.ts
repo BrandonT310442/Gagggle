@@ -81,6 +81,7 @@ export type LLMProviderType = 'mock' | 'groq' | 'cohere';
 export interface ModelConfig {
   provider: LLMProviderType;
   model?: string;
+  modelLabel?: string;
 }
 
 export interface LLMGenerationParams {

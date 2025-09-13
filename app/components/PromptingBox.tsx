@@ -21,6 +21,7 @@ interface PromptingBoxProps {
   onSubmit?: (data: {
     provider: string;
     model?: string;
+    modelLabel?: string;
     ideaCount: string;
     prompt: string;
   }) => void;
@@ -67,7 +68,6 @@ const OpenAIIcon = () => {
   );
 };
 
-
 const ExpandMoreIcon = () => (
   <svg
     className='w-4 h-4 text-gray-600'
@@ -113,7 +113,11 @@ function Dropdown({ value, options, onChange, placeholder }: DropdownProps) {
     if (optionValue.includes('openai') || optionValue.includes('gpt')) {
       return <OpenAIIcon />;
     }
-    if (optionValue.includes('meta') || optionValue.includes('llama') || provider === 'groq') {
+    if (
+      optionValue.includes('meta') ||
+      optionValue.includes('llama') ||
+      provider === 'groq'
+    ) {
       return <MetaIcon />;
     }
     if (provider === 'cohere') {
@@ -169,7 +173,10 @@ function Dropdown({ value, options, onChange, placeholder }: DropdownProps) {
 }
 
 // Main PromptingBox Component matching Figma design exactly
-export default function PromptingBox({ onSubmit, isLoading = false }: PromptingBoxProps) {
+export default function PromptingBox({
+  onSubmit,
+  isLoading = false,
+}: PromptingBoxProps) {
   const [llmProvider, setLlmProvider] = useState('groq');
   const [ideaCount, setIdeaCount] = useState('3');
   const [prompt, setPrompt] = useState('');
@@ -177,15 +184,15 @@ export default function PromptingBox({ onSubmit, isLoading = false }: PromptingB
   const llmProviders = [
     {
       value: 'groq',
+      label: 'Llama 3.1 8B',
+      provider: 'groq',
+      model: 'llama-3.1-8b-instant',
+    },
+    {
+      value: 'groq',
       label: 'Llama 3.3 70B',
       provider: 'groq',
       model: 'llama-3.3-70b-versatile',
-    },
-    {
-      value: 'groq-tool',
-      label: 'Llama 3 70B Tool Use',
-      provider: 'groq',
-      model: 'llama3-groq-70b-8192-tool-use-preview',
     },
     {
       value: 'groq-guard',
@@ -234,6 +241,7 @@ export default function PromptingBox({ onSubmit, isLoading = false }: PromptingB
       onSubmit({
         provider: selectedProvider?.provider || 'mock',
         model: selectedProvider?.model,
+        modelLabel: selectedProvider?.label,
         ideaCount,
         prompt: prompt.trim(),
       });

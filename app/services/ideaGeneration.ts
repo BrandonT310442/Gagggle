@@ -8,11 +8,11 @@ export class IdeaGenerationService {
         '/api/generate',
         request
       );
-      
+
       if (!response.success) {
         throw new Error(response.error || 'Failed to generate ideas');
       }
-      
+
       return response;
     } catch (error) {
       console.error('Error generating ideas:', error);

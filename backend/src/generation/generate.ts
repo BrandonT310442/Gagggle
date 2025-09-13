@@ -41,6 +41,9 @@ export async function generateIdeas(request: GenerateIdeasRequest): Promise<Gene
         metadata: {
           generatedBy: 'user',
           isPrompt: true,
+          modelProvider: modelConfig.provider,
+          modelName: modelConfig.model || getDefaultModel(modelConfig.provider),
+          modelLabel: modelConfig.modelLabel,
           createdAt: new Date().toISOString()
         },
         createdBy: 'user',
@@ -106,7 +109,11 @@ export async function generateIdeas(request: GenerateIdeasRequest): Promise<Gene
     
     const generationTime = Date.now() - startTime;
     
-    // Add generated ideas to the graph store
+    // Add prompt node and generated ideas to the graph store
+    if (promptNode) {
+      graphStore.addNode(promptNode);
+    }
+
     for (const idea of ideas) {
       graphStore.addNode(idea);
     }
@@ -114,9 +121,12 @@ export async function generateIdeas(request: GenerateIdeasRequest): Promise<Gene
     console.log(`[Generate] Successfully generated ${ideas.length} ideas in ${generationTime}ms`);
     console.log(`[Generate] Graph now contains ${graphStore.getSize()} nodes`);
     
+    // Include prompt node if it was created
+    const allIdeas = promptNode ? [promptNode, ...ideas] : ideas;
+
     return {
       success: true,
-      ideas,
+      ideas: allIdeas,
       promptUsed: request.prompt,
       generationTime
     };

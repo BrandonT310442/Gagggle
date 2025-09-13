@@ -87,6 +87,7 @@ export function IdeaGraphProvider({ children }: { children: ReactNode }) {
           generatedBy: 'ai',
           modelProvider: request.modelConfig?.provider,
           modelName: request.modelConfig?.model,
+          modelLabel: request.modelConfig?.modelLabel,
         },
         createdBy: 'system',
         createdAt: new Date(),

@@ -34,6 +34,7 @@ export interface GenerateIdeasRequest {
   modelConfig?: {
     provider: 'groq' | 'cohere' | 'mock';
     model?: string;
+    modelLabel?: string;
   };
   createPromptNode?: boolean;
 }
