@@ -24,6 +24,7 @@ interface PromptingBoxProps {
     ideaCount: string;
     prompt: string;
   }) => void;
+  isLoading?: boolean;
 }
 
 // SVG Icons as React components - matching Figma design exactly
@@ -168,7 +169,7 @@ function Dropdown({ value, options, onChange, placeholder }: DropdownProps) {
 }
 
 // Main PromptingBox Component matching Figma design exactly
-export default function PromptingBox({ onSubmit }: PromptingBoxProps) {
+export default function PromptingBox({ onSubmit, isLoading = false }: PromptingBoxProps) {
   const [llmProvider, setLlmProvider] = useState('groq');
   const [ideaCount, setIdeaCount] = useState('3');
   const [prompt, setPrompt] = useState('');
@@ -226,7 +227,7 @@ export default function PromptingBox({ onSubmit }: PromptingBoxProps) {
   ];
 
   const handleSubmit = () => {
-    if (prompt.trim() && onSubmit) {
+    if (prompt.trim() && onSubmit && !isLoading) {
       const selectedProvider = llmProviders.find(
         (p) => p.value === llmProvider
       );
@@ -272,7 +273,7 @@ export default function PromptingBox({ onSubmit }: PromptingBoxProps) {
             onChange={(e) => setPrompt(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder='Write a prompt to start ideating....'
-            className='w-full min-h-[60px] p-0 border-0 bg-transparent resize-none focus:outline-none font-syne text-base font-semibold leading-6 text-slate-500 placeholder:text-slate-500'
+            className='w-full min-h-[60px] p-0 border-0 bg-transparent resize-none focus:outline-none font-syne text-base font-semibold leading-6 text-black placeholder:text-slate-500'
             style={{
               fontFamily: 'Syne, sans-serif',
               width: 'min-content',
@@ -287,7 +288,7 @@ export default function PromptingBox({ onSubmit }: PromptingBoxProps) {
         <button
           type='button'
           onClick={handleSubmit}
-          disabled={!prompt.trim()}
+          disabled={!prompt.trim() || isLoading}
           className='bg-black box-border flex gap-6 h-10 items-center justify-end p-2 relative shrink-0 hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-600 disabled:opacity-50 disabled:cursor-not-allowed'
           aria-label='Submit prompt'
         >

@@ -11,7 +11,7 @@ import { IdeaGraphProvider, useIdeaGraph } from './contexts/IdeaGraphContext';
 
 function HomePageContent() {
   const [fileName, setFileName] = useState('Untitled Document');
-  const { generateIdeas, state } = useIdeaGraph();
+  const { generateIdeas, state, isLoading } = useIdeaGraph();
 
   const handlePromptSubmit = useCallback(async (data: {
     provider: string;
@@ -79,14 +79,14 @@ function HomePageContent() {
           <div className='flex flex-col items-center justify-start p-4 min-h-screen pt-20'>
             {!hasNodes && (
               <div className='w-full max-w-2xl mb-8'>
-                <PromptingBox onSubmit={handlePromptSubmit} />
+                <PromptingBox onSubmit={handlePromptSubmit} isLoading={isLoading} />
               </div>
             )}
             
             {hasNodes && (
               <>
                 <div className='w-full max-w-4xl mb-4'>
-                  <PromptingBox onSubmit={handlePromptSubmit} />
+                  <PromptingBox onSubmit={handlePromptSubmit} isLoading={isLoading} />
                 </div>
                 <div className='w-full max-w-6xl'>
                   <NodeGraph onNodeGenerate={handleNodeGenerate} />

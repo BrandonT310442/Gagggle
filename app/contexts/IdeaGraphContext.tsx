@@ -67,9 +67,64 @@ export function IdeaGraphProvider({ children }: { children: ReactNode }) {
     setIsLoading(true);
     setError(null);
 
+    const parentNode = request.parentNodeId ? state.nodes.get(request.parentNodeId) : undefined;
+
+    // Create placeholder nodes immediately
+    const placeholderNodes: IdeaNode[] = [];
+    const placeholderIds: string[] = [];
+
+    for (let i = 0; i < request.count; i++) {
+      const placeholderId = `placeholder-${Date.now()}-${i}`;
+      placeholderIds.push(placeholderId);
+
+      const placeholderNode: IdeaNode = {
+        id: placeholderId,
+        content: '', // Empty content for loading state
+        parentId: parentNode?.id,
+        childIds: [],
+        metadata: {
+          isLoading: true,
+          generatedBy: 'ai',
+          modelProvider: request.modelConfig?.provider,
+          modelName: request.modelConfig?.model,
+        },
+        createdBy: 'system',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      placeholderNodes.push(placeholderNode);
+    }
+
+    // Add placeholder nodes to state immediately
+    setState(prevState => {
+      const newNodes = new Map(prevState.nodes);
+      const newRootNodes = [...prevState.rootNodes];
+
+      placeholderNodes.forEach(node => {
+        newNodes.set(node.id, node);
+
+        if (!node.parentId) {
+          newRootNodes.push(node.id);
+        } else {
+          const parent = newNodes.get(node.parentId);
+          if (parent) {
+            parent.childIds = [...parent.childIds, node.id];
+            newNodes.set(parent.id, parent);
+          }
+        }
+      });
+
+      const positionedNodes = calculateNodePositions(newNodes, newRootNodes);
+
+      return {
+        ...prevState,
+        nodes: positionedNodes,
+        rootNodes: newRootNodes,
+      };
+    });
+
     try {
-      const parentNode = request.parentNodeId ? state.nodes.get(request.parentNodeId) : undefined;
-      
       const apiRequest: GenerateIdeasRequest = {
         prompt: request.prompt,
         count: request.count,
@@ -90,9 +145,28 @@ export function IdeaGraphProvider({ children }: { children: ReactNode }) {
           const newNodes = new Map(prevState.nodes);
           const newRootNodes = [...prevState.rootNodes];
 
+          // Remove placeholder nodes
+          placeholderIds.forEach(placeholderId => {
+            newNodes.delete(placeholderId);
+            const rootIndex = newRootNodes.indexOf(placeholderId);
+            if (rootIndex > -1) {
+              newRootNodes.splice(rootIndex, 1);
+            }
+
+            // Remove from parent's childIds
+            if (parentNode) {
+              const parent = newNodes.get(parentNode.id);
+              if (parent) {
+                parent.childIds = parent.childIds.filter(id => id !== placeholderId);
+                newNodes.set(parent.id, parent);
+              }
+            }
+          });
+
+          // Add real nodes
           response.ideas.forEach(idea => {
             newNodes.set(idea.id, idea);
-            
+
             if (!idea.parentId) {
               newRootNodes.push(idea.id);
             } else {
@@ -117,6 +191,37 @@ export function IdeaGraphProvider({ children }: { children: ReactNode }) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to generate ideas';
       setError(errorMessage);
       console.error('Error in generateIdeas:', err);
+
+      // Remove placeholder nodes on error
+      setState(prevState => {
+        const newNodes = new Map(prevState.nodes);
+        const newRootNodes = [...prevState.rootNodes];
+
+        placeholderIds.forEach(placeholderId => {
+          newNodes.delete(placeholderId);
+          const rootIndex = newRootNodes.indexOf(placeholderId);
+          if (rootIndex > -1) {
+            newRootNodes.splice(rootIndex, 1);
+          }
+
+          // Remove from parent's childIds
+          if (parentNode) {
+            const parent = newNodes.get(parentNode.id);
+            if (parent) {
+              parent.childIds = parent.childIds.filter(id => id !== placeholderId);
+              newNodes.set(parent.id, parent);
+            }
+          }
+        });
+
+        const positionedNodes = calculateNodePositions(newNodes, newRootNodes);
+
+        return {
+          ...prevState,
+          nodes: positionedNodes,
+          rootNodes: newRootNodes,
+        };
+      });
     } finally {
       setIsLoading(false);
     }

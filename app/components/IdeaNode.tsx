@@ -2,6 +2,8 @@
 
 import { useState } from 'react';
 import { IdeaNode as IdeaNodeType } from '../types/idea';
+import Lottie from 'lottie-react';
+import loadingAnimation from '../../public/gagggleLoading.json';
 
 interface IdeaNodeProps {
   node: IdeaNodeType;
@@ -127,7 +129,18 @@ export default function IdeaNode({
             minWidth: '100%',
           }}
         >
-          {node.content}
+          {node.metadata?.isLoading ? (
+            <div className="flex flex-col items-center justify-center py-4">
+              <Lottie
+                animationData={loadingAnimation}
+                style={{ width: 120, height: 90 }}
+                loop={true}
+              />
+              <p className="text-xs text-gray-500 mt-2">Generating idea...</p>
+            </div>
+          ) : (
+            node.content
+          )}
         </div>
       </div>
 

@@ -8,6 +8,7 @@ export interface IdeaNode {
     generationPrompt?: string;
     ideaText?: string;
     isPrompt?: boolean;
+    isLoading?: boolean;
     createdAt?: string;
     modelProvider?: string;
     modelName?: string;
