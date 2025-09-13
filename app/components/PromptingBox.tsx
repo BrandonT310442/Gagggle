@@ -175,22 +175,16 @@ export default function PromptingBox({ onSubmit }: PromptingBoxProps) {
 
   const llmProviders = [
     {
+      value: 'groq-instant',
+      label: 'Llama 3.1 8B Instant',
+      provider: 'groq',
+      model: 'llama-3.1-8b-instant',
+    },
+    {
       value: 'groq',
       label: 'Llama 3.3 70B',
       provider: 'groq',
       model: 'llama-3.3-70b-versatile',
-    },
-    {
-      value: 'groq-tool',
-      label: 'Llama 3 70B Tool Use',
-      provider: 'groq',
-      model: 'llama3-groq-70b-8192-tool-use-preview',
-    },
-    {
-      value: 'groq-guard',
-      label: 'Llama Guard 4',
-      provider: 'groq',
-      model: 'meta-llama/llama-guard-4-12b',
     },
     {
       value: 'openai-120b',
