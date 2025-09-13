@@ -1,15 +1,11 @@
 'use client';
 
-import { useState } from 'react';
-import { IdeaNode as IdeaNodeType } from '../types/idea';
-import Lottie from 'lottie-react';
-import loadingAnimation from '../../public/gagggleLoading.json';
+import { IdeaNode } from '../types/idea';
 
-interface IdeaNodeProps {
-  node: IdeaNodeType;
+interface PromptNodeProps {
+  node: IdeaNode;
   isSelected?: boolean;
   onSelect?: () => void;
-  onGenerateChildren?: () => void;
 }
 
 const CohereIcon = () => {
@@ -51,16 +47,11 @@ const OpenAIIcon = () => {
   );
 };
 
-export default function IdeaNode({
+export default function PromptNode({
   node,
   isSelected = false,
   onSelect,
-  onGenerateChildren,
-}: Readonly<IdeaNodeProps>) {
-  const [isHovered, setIsHovered] = useState(false);
-
-  const isPromptNode = node.metadata?.isPrompt;
-
+}: Readonly<PromptNodeProps>) {
   const getModelIcon = (modelName?: string) => {
     if (!modelName) return <MetaIcon />;
 
@@ -85,7 +76,7 @@ export default function IdeaNode({
 
     if (modelName.includes('llama-3.1-8b')) return 'Llama 3.1 8B';
     if (modelName.includes('llama-3.3-70b')) return 'Llama 3.3 70B';
-    // if (modelName.includes('llama3-groq-70b')) return 'Llama 3 70B Tool Use';
+    if (modelName.includes('llama3-groq-70b')) return 'Llama 3 70B Tool Use';
     if (modelName.includes('llama-guard-4')) return 'Llama Guard 4';
     if (modelName.includes('gpt-oss-120b')) return 'GPT OSS 120B';
     if (modelName.includes('gpt-oss-20b')) return 'GPT OSS 20B';
@@ -98,18 +89,17 @@ export default function IdeaNode({
   return (
     <div
       className={`
-        bg-white box-border flex flex-col gap-6 items-start justify-start p-6 relative
+        bg-slate-50 box-border flex flex-col gap-6 items-start justify-start p-6 relative
         cursor-pointer transition-all duration-200
-        ${isSelected ? 'ring-2 ring-blue-500 shadow-lg' : ''}
-        ${isHovered ? 'shadow-xl' : 'shadow-md'}
+        border border-dashed border-slate-400
+        ${isSelected ? 'ring-2 ring-blue-500 shadow-lg' : 'shadow-sm'}
+        hover:shadow-md
       `}
       onClick={onSelect}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
       style={{
         width: 'fit-content',
-        minWidth: '28rem',
-        maxWidth: '32rem',
+        minWidth: '300px',
+        maxWidth: '450px',
       }}
     >
       <div className='flex flex-col gap-2 items-start justify-start relative shrink-0 w-full'>
@@ -126,27 +116,16 @@ export default function IdeaNode({
           </div>
         </div>
 
-        {/* Content section */}
+        {/* Prompt content section */}
         <div
-          className="font-['Syne'] text-base font-normal leading-6 text-black"
+          className="font-['Syne'] text-base font-semibold leading-6 text-black"
           style={{
             fontFamily: 'Syne, sans-serif',
             width: 'min-content',
             minWidth: '100%',
           }}
         >
-          {node.metadata?.isLoading ? (
-            <div className='flex flex-col items-center justify-center py-4'>
-              <Lottie
-                animationData={loadingAnimation}
-                style={{ width: 120, height: 90 }}
-                loop={true}
-              />
-              <p className='text-xs text-gray-500 mt-2'>Generating idea...</p>
-            </div>
-          ) : (
-            node.content
-          )}
+          {node.content}
         </div>
       </div>
     </div>
