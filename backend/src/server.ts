@@ -280,8 +280,6 @@ io.on('connection', (socket) => {
 
   // Handle cursor movement
   socket.on('cursor-move', (data) => {
-    console.log(`Broadcasting cursor data from ${userId} to room ${roomId}:`, data);
-    
     // Store/update cursor position in room state
     room.cursors.set(userId as string, {
       ...data,
