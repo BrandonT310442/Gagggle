@@ -1,6 +1,7 @@
 import { MergeIdeasRequest, MergeIdeasResponse, IdeaNode } from '../types';
 import { getLLMProvider } from '../llm/provider';
 import { generateId } from '../utils/validation';
+import { graphStore } from '../graph/graphStore';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -107,6 +108,10 @@ export async function mergeIdeas(request: MergeIdeasRequest): Promise<MergeIdeas
     };
     
     const generationTime = Date.now() - startTime;
+    
+    // Add merged node to the graph store
+    graphStore.addNode(mergedIdea);
+    console.log(`[Merge] Added merged node to graph. Graph now contains ${graphStore.getSize()} nodes`);
     
     return {
       success: true,

@@ -2,6 +2,7 @@ import { GenerateIdeasRequest, GenerateIdeasResponse, IdeaNode } from '../types'
 import { GenerationWorkflow } from './langgraph/workflow/generationGraph';
 import { NodeConfig } from './langgraph/types';
 import { generateId } from '../utils/validation';
+import { graphStore } from '../graph/graphStore';
 
 // Helper function to get default model for provider
 // These should match the defaults in the provider constructors
@@ -27,6 +28,38 @@ export async function generateIdeas(request: GenerateIdeasRequest): Promise<Gene
     
     console.log(`[Generate] Starting generation with provider: ${modelConfig.provider}, model: ${modelConfig.model}`);
     
+    // Create a node for the user's prompt if this is a root generation (no parent)
+    let promptNode: IdeaNode | undefined;
+    let effectiveParentNode = request.parentNode;
+    
+    if (!request.parentNode && request.createPromptNode !== false) {
+      // Create a node for the user prompt
+      promptNode = {
+        id: generateId(),
+        content: request.prompt,
+        parentId: undefined,
+        childIds: [],
+        metadata: {
+          generatedBy: 'user',
+          isPrompt: true,
+          createdAt: new Date().toISOString()
+        },
+        createdBy: 'user',
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
+      
+      // Add prompt node to the graph
+      graphStore.addNode(promptNode);
+      console.log(`[Generate] Created prompt node: ${promptNode.id}`);
+      
+      // Use the prompt node as the parent for generated ideas
+      effectiveParentNode = {
+        id: promptNode.id,
+        content: promptNode.content
+      };
+    }
+    
     // Configure the workflow based on request
     const nodeConfig: NodeConfig = {
       modelProvider: modelConfig.provider,
@@ -41,7 +74,7 @@ export async function generateIdeas(request: GenerateIdeasRequest): Promise<Gene
     const result = await workflow.execute({
       prompt: request.prompt,
       count: request.count,
-      parentNode: request.parentNode,
+      parentNode: effectiveParentNode,
       modelConfig: modelConfig
     });
     
@@ -59,7 +92,7 @@ export async function generateIdeas(request: GenerateIdeasRequest): Promise<Gene
     const ideas: IdeaNode[] = result.responses.map(response => ({
       id: generateId(),
       content: response.content,
-      parentId: request.parentNode?.id,
+      parentId: effectiveParentNode?.id,
       childIds: [],
       metadata: {
         generatedBy: 'ai',
@@ -74,7 +107,13 @@ export async function generateIdeas(request: GenerateIdeasRequest): Promise<Gene
     
     const generationTime = Date.now() - startTime;
     
+    // Add generated ideas to the graph store
+    for (const idea of ideas) {
+      graphStore.addNode(idea);
+    }
+    
     console.log(`[Generate] Successfully generated ${ideas.length} ideas in ${generationTime}ms`);
+    console.log(`[Generate] Graph now contains ${graphStore.getSize()} nodes`);
     
     return {
       success: true,
