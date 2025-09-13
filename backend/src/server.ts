@@ -21,8 +21,13 @@ const app = express();
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
   cors: {
-    origin: "http://localhost:3000",
-    methods: ["GET", "POST"]
+    origin: [
+      "http://localhost:3000",
+      /^https:\/\/.*\.ngrok\.io$/,  // Allow any ngrok subdomain
+      /^https:\/\/.*\.ngrok-free\.app$/  // Allow any ngrok-free subdomain
+    ],
+    methods: ["GET", "POST"],
+    credentials: true
   }
 });
 
@@ -45,7 +50,14 @@ interface Room {
 const rooms = new Map<string, Room>();
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: [
+    "http://localhost:3000",
+    /^https:\/\/.*\.ngrok\.io$/,  // Allow any ngrok subdomain
+    /^https:\/\/.*\.ngrok-free\.app$/  // Allow any ngrok-free subdomain
+  ],
+  credentials: true
+}));
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 

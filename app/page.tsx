@@ -43,24 +43,33 @@ export default function CursorDemo() {
   useEffect(() => {
     if (!roomId) return; // Wait for roomId to be set
     
-    const newSocket = io('http://localhost:3001', {
-      query: { roomId, userId }
+    // Use localhost for local development, ngrok backend for remote access
+    const backendUrl = window.location.hostname === 'localhost' 
+      ? 'http://localhost:3001'
+      : 'https://130e0015f42a.ngrok-free.app'; // Backend ngrok tunnel
+    
+    const newSocket = io(backendUrl, {
+      query: { roomId, userId },
+      transports: ['websocket', 'polling']
     });
 
     newSocket.on('connect', () => {
       setIsConnected(true);
-      console.log('Connected to room:', roomId);
     });
     
-    newSocket.on('disconnect', () => setIsConnected(false));
+    newSocket.on('connect_error', () => {
+      setIsConnected(false);
+    });
+    
+    newSocket.on('disconnect', () => {
+      setIsConnected(false);
+    });
     
     newSocket.on('cursor-move', (data: Cursor) => {
-      console.log('Received cursor data:', data);
       setCursors(prev => ({ ...prev, [data.userId]: data }));
     });
 
     newSocket.on('user-left', (leftUserId: string) => {
-      console.log('User left:', leftUserId);
       setCursors(prev => {
         const { [leftUserId]: removed, ...rest } = prev;
         return rest;
@@ -82,14 +91,12 @@ export default function CursorDemo() {
     
     // Send to other users
     if (socket && isConnected) {
-      const data = {
+      socket.emit('cursor-move', {
         userId,
         x,
         y,
         color: userColor
-      };
-      console.log('Sending cursor data:', data);
-      socket.emit('cursor-move', data);
+      });
     }
   };
 
