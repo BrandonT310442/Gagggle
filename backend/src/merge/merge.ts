@@ -43,29 +43,22 @@ function renderTemplate(template: string, data: Record<string, any>): string {
 
 // Parse LLM output for merge responses
 function parseMergeOutput(text: string): string {
-  // First try to parse as JSON
-  try {
-    // Clean the text - remove markdown code blocks if present
-    const cleanedText = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-    
-    const parsed = JSON.parse(cleanedText);
-    
-    // Check for merged response
-    if (parsed.merged && typeof parsed.merged === 'string') {
-      return parsed.merged;
-    }
-    
-    // Check if it's a string directly
-    if (typeof parsed === 'string') {
-      return parsed;
-    }
-  } catch (e) {
-    // JSON parsing failed, use the text as-is
-    console.log('JSON parsing failed for merge, using raw text');
+  // Try to parse as a quoted string
+  const trimmed = text.trim();
+  
+  // If it's wrapped in quotes, extract the content
+  if (trimmed.startsWith('"') && trimmed.endsWith('"')) {
+    return trimmed.slice(1, -1);
   }
   
-  // Fallback: clean and return the text
-  return text.trim();
+  // Try to extract the first quoted string
+  const match = text.match(/"([^"]+)"/);
+  if (match && match[1]) {
+    return match[1];
+  }
+  
+  // Fallback: return cleaned text
+  return trimmed;
 }
 
 export async function mergeIdeas(request: MergeIdeasRequest): Promise<MergeIdeasResponse> {

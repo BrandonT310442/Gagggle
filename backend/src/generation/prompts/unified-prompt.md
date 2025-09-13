@@ -53,23 +53,21 @@ Generate {{count}} extensions that:
 {{#if maxLength}}- Keep each response concise (under {{maxLength}} characters){{/if}}
 {{/if}}
 
-## CRITICAL OUTPUT INSTRUCTIONS
+## OUTPUT INSTRUCTIONS
 
-You MUST respond with valid JSON. No other text before or after.
+You MUST respond with a JSON array containing EXACTLY {{count}} strings.
+Each string should be a complete idea (2-4 sentences).
 
-Generate EXACTLY {{count}} responses in this JSON format:
+Example format:
+[
+  "First complete idea here with 2-4 sentences of detail",
+  "Second complete idea here with 2-4 sentences of detail"{{#if isThree}},
+  "Third complete idea here with 2-4 sentences of detail"{{/if}}{{#if isFour}},
+  "Third complete idea here with 2-4 sentences of detail",
+  "Fourth complete idea here with 2-4 sentences of detail"{{/if}}{{#if isFive}},
+  "Third complete idea here with 2-4 sentences of detail",
+  "Fourth complete idea here with 2-4 sentences of detail",
+  "Fifth complete idea here with 2-4 sentences of detail"{{/if}}
+]
 
-```json
-{
-  "responses": [
-    "Your first complete response here - a full thought/solution/concept that stands on its own",
-    "Your second complete response here - exploring a DIFFERENT angle than #1"{{#if isThree}},
-    "Your third complete response here - different from both #1 and #2"{{/if}}{{#if isFour}},
-    "Your third complete response here - different from #1 and #2",
-    "Your fourth complete response here - a fresh perspective different from all above"{{/if}}{{#if isFive}},
-    "Your third complete response here - different from #1 and #2",
-    "Your fourth complete response here - different from all above",
-    "Your fifth complete response here - another unique angle"{{/if}}
-  ]
-}
-```
+CRITICAL: Return ONLY the JSON array. No other text.

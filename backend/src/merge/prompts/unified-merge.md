@@ -41,12 +41,10 @@ Merge the above concepts into ONE unified solution that:
 {{userInstruction}}
 {{/if}}
 
-## CRITICAL OUTPUT INSTRUCTIONS
+## OUTPUT INSTRUCTIONS
 
-You MUST respond with valid JSON. No other text before or after.
+Respond with ONLY a single string (the merged idea) in quotes:
 
-```json
-{
-  "merged": "Your merged concept here - a single cohesive paragraph that synthesizes ALL input concepts into one unified solution. This should be substantial (3-5 sentences) and capture the essence of all inputs while creating something greater than the sum of its parts."
-}
-```
+"Your merged concept here"
+
+Nothing else. Just the quoted string.
