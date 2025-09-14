@@ -60,6 +60,8 @@ function HomePageContent() {
             provider: data.provider as 'groq' | 'cohere' | 'mock',
             model: data.model,
           },
+          // Create a prompt node for the main prompt
+          createPromptNode: true,
           // Center the initial prompt
           position: isFirstPrompt ? { x: 400, y: 100 } : undefined,
         });

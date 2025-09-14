@@ -451,11 +451,14 @@ export function IdeaGraphProvider({ children }: Readonly<{ children: ReactNode }
         // Emit sync event to other users after successfully adding ideas
         console.log('[IdeaGraphContext] About to emit sync-ideas. Socket exists:', !!socket, 'UserId exists:', !!userId);
         if (socket && userId) {
-          console.log('[IdeaGraphContext] Emitting sync-ideas for', response.ideas.length, 'ideas to other users');
-          console.log('[IdeaGraphContext] Ideas being synced:', response.ideas.map(idea => ({ id: idea.id, content: idea.content.substring(0, 50) })));
+          // All nodes from the response are already included (both prompt and idea nodes)
+          const nodesToSync = [...response.ideas];
+          
+          console.log('[IdeaGraphContext] Emitting sync-ideas for', nodesToSync.length, 'nodes to other users');
+          console.log('[IdeaGraphContext] Nodes being synced:', nodesToSync.map(node => ({ id: node.id, content: node.content.substring(0, 50), isPrompt: node.metadata?.isPrompt })));
           socket.emit('sync-ideas', { 
             userId, 
-            ideas: response.ideas,
+            ideas: nodesToSync,
             parentNodeId: parentNode?.id || null 
           });
           console.log('[IdeaGraphContext] sync-ideas event emitted successfully');

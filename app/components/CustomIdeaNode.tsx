@@ -70,6 +70,49 @@ export default function CustomIdeaNode({ data, selected }: NodeProps) {
 
   const userColor = isComment ? getUserColor(node.createdBy) : undefined;
 
+  // Get username for comments
+  const getUsername = (userId: string) => {
+    if (data.currentUser?.userId === userId) {
+      return 'You';
+    }
+    // For now, we'll use a shortened version of the userId since we don't have usernames
+    // You could extend this to use actual usernames if they're available
+    return `User ${userId.substring(0, 8)}`;
+  };
+
+  // Format timestamp for comments
+  const formatTimestamp = (date: Date | string) => {
+    const now = new Date();
+    const dateObj = date instanceof Date ? date : new Date(date);
+    const diff = now.getTime() - dateObj.getTime();
+    const minutes = Math.floor(diff / 60000);
+    const hours = Math.floor(diff / 3600000);
+    const days = Math.floor(diff / 86400000);
+
+    if (minutes < 1) return 'Just now';
+    if (minutes < 60) return `${minutes}m ago`;
+    if (hours < 24) return `${hours}h ago`;
+    if (days < 7) return `${days}d ago`;
+    return dateObj.toLocaleDateString();
+  };
+
+  // User avatar component for comments
+  const UserAvatar = ({ color, size = 16 }: { color: string; size?: number }) => {
+    return (
+      <div 
+        className='rounded-full flex items-center justify-center text-white text-xs font-bold'
+        style={{ 
+          backgroundColor: color, 
+          width: size, 
+          height: size,
+          fontSize: size * 0.5
+        }}
+      >
+        {node.createdBy.substring(0, 1).toUpperCase()}
+      </div>
+    );
+  };
+
   // Debug logging
   useEffect(() => {
     if (isManualNote) {
@@ -218,7 +261,10 @@ export default function CustomIdeaNode({ data, selected }: NodeProps) {
   };
 
   const formatModelName = (modelName?: string, modelLabel?: string, isManualNote?: boolean, isComment?: boolean) => {
-    if (isComment) return 'Comment';
+    if (isComment) {
+      // For comments, we'll handle the display differently in the JSX
+      return null;
+    }
     if (isManualNote) return 'Manual Mode';
     if (modelLabel) return modelLabel;
     if (!modelName) return 'Unknown Model';
@@ -258,17 +304,31 @@ export default function CustomIdeaNode({ data, selected }: NodeProps) {
         <div className='flex flex-col gap-2 items-start justify-start relative shrink-0 w-full'>
           {/* Model info section */}
           <div className='box-border flex gap-2 items-center justify-start px-0 py-2 relative shrink-0'>
-            <div className='flex gap-1 items-center justify-start relative shrink-0'>
-              {getModelIcon(node.metadata?.modelName, node.metadata?.isManualNote, node.metadata?.isComment)}
-              <div className="font-['Inter'] text-xs font-normal leading-4 text-black whitespace-nowrap">
-                {formatModelName(
-                  node.metadata?.modelName,
-                  node.metadata?.modelLabel,
-                  node.metadata?.isManualNote,
-                  node.metadata?.isComment
-                )}
+            {isComment ? (
+              /* Comment header with user info */
+              <div className='flex gap-2 items-center justify-start relative shrink-0'>
+                <UserAvatar color={userColor || '#6B7280'} size={16} />
+                <div className="font-['Inter'] text-xs font-normal leading-4 text-gray-700">
+                  {getUsername(node.createdBy)}
+                </div>
+                <div className="font-['Inter'] text-xs font-normal leading-4 text-gray-500">
+                  {formatTimestamp(node.createdAt)}
+                </div>
               </div>
-            </div>
+            ) : (
+              /* Regular model info for ideas and manual notes */
+              <div className='flex gap-1 items-center justify-start relative shrink-0'>
+                {getModelIcon(node.metadata?.modelName, node.metadata?.isManualNote, node.metadata?.isComment)}
+                <div className="font-['Inter'] text-xs font-normal leading-4 text-black whitespace-nowrap">
+                  {formatModelName(
+                    node.metadata?.modelName,
+                    node.metadata?.modelLabel,
+                    node.metadata?.isManualNote,
+                    node.metadata?.isComment
+                  )}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Content section */}
