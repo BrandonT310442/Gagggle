@@ -7,8 +7,10 @@ import { ideaGenerationService } from '../services/ideaGeneration';
 
 interface IdeaGraphContextType {
   state: IdeaGraphState;
-  generateIdeas: (request: Omit<GenerateIdeasRequest, 'parentNode'> & { parentNodeId?: string }) => Promise<void>;
+  generateIdeas: (request: Omit<GenerateIdeasRequest, 'parentNode'> & { parentNodeId?: string; createPromptNode?: boolean }) => Promise<void>;
   createEmptyNote: () => void;
+  createPromptToolNode: () => void;
+  removeNode: (nodeId: string) => void;
   updateNodeContent: (nodeId: string, content: string) => void;
   selectNode: (nodeId: string | undefined) => void;
   clearGraph: () => void;
@@ -390,6 +392,91 @@ export function IdeaGraphProvider({ children }: Readonly<{ children: ReactNode }
     }
   }, [state.nodes, getNextManualNotePosition, socket, userId]);
 
+  const createPromptToolNode = useCallback(() => {
+    console.log('[IdeaGraphContext] createPromptToolNode called');
+    
+    // Generate unique ID for the new prompt tool node
+    const toolId = `prompt-tool-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+    
+    // Find the next position in the deterministic grid
+    const position = getNextManualNotePosition(state.nodes);
+    
+    // Create the prompt tool node
+    const promptToolNode: IdeaNode = {
+      id: toolId,
+      content: '', // Empty content for prompt tool
+      parentId: undefined, // Prompt tools are root-level
+      childIds: [],
+      metadata: {
+        generatedBy: 'user',
+        isPromptTool: true,
+        createdAt: new Date().toISOString(),
+      },
+      createdBy: userId || 'unknown',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      position: position,
+    };
+
+    // Add the node to the state
+    setState(prevState => {
+      const newNodes = new Map(prevState.nodes);
+      const newRootNodes = [...prevState.rootNodes];
+
+      newNodes.set(promptToolNode.id, promptToolNode);
+      newRootNodes.push(promptToolNode.id);
+
+      return {
+        ...prevState,
+        nodes: newNodes,
+        rootNodes: newRootNodes,
+        selectedNodeId: promptToolNode.id, // Auto-select the new prompt tool
+      };
+    });
+
+    // Sync with other users
+    if (socket && userId) {
+      console.log('[IdeaGraphContext] Emitting sync-ideas for new prompt tool node');
+      socket.emit('sync-ideas', {
+        userId,
+        ideas: [promptToolNode],
+        parentNodeId: null
+      });
+    }
+  }, [state.nodes, getNextManualNotePosition, socket, userId]);
+
+  const removeNode = useCallback((nodeId: string) => {
+    console.log('[IdeaGraphContext] removeNode called for node:', nodeId);
+    
+    setState(prevState => {
+      const newNodes = new Map(prevState.nodes);
+      const newRootNodes = [...prevState.rootNodes];
+      
+      // Remove the node
+      newNodes.delete(nodeId);
+      
+      // Remove from root nodes if present
+      const rootIndex = newRootNodes.indexOf(nodeId);
+      if (rootIndex > -1) {
+        newRootNodes.splice(rootIndex, 1);
+      }
+      
+      // Remove from any parent's childIds
+      newNodes.forEach(node => {
+        if (node.childIds.includes(nodeId)) {
+          node.childIds = node.childIds.filter(id => id !== nodeId);
+        }
+      });
+      
+      return {
+        ...prevState,
+        nodes: newNodes,
+        rootNodes: newRootNodes,
+        selectedNodeId: prevState.selectedNodeId === nodeId ? undefined : prevState.selectedNodeId,
+      };
+    });
+  }, []);
+
   const updateNodeContent = useCallback((nodeId: string, content: string) => {
     console.log('[IdeaGraphContext] updateNodeContent called for node:', nodeId, 'content:', content);
     
@@ -446,6 +533,8 @@ export function IdeaGraphProvider({ children }: Readonly<{ children: ReactNode }
       state,
       generateIdeas,
       createEmptyNote,
+      createPromptToolNode,
+      removeNode,
       updateNodeContent,
       selectNode,
       clearGraph,

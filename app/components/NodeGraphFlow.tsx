@@ -18,6 +18,7 @@ import 'reactflow/dist/style.css';
 import { useIdeaGraph } from '../contexts/IdeaGraphContext';
 import CustomIdeaNode from './CustomIdeaNode';
 import CustomPromptNode from './CustomPromptNode';
+import CustomPromptToolNode from './CustomPromptToolNode';
 import Lottie from 'lottie-react';
 import loadingAnimation from '../../public/gagggleLoading.json';
 
@@ -29,6 +30,7 @@ interface NodeGraphFlowProps {
 const nodeTypes: NodeTypes = {
   ideaNode: CustomIdeaNode,
   promptNode: CustomPromptNode,
+  promptToolNode: CustomPromptToolNode,
 };
 
 export default function NodeGraphFlow({
@@ -46,7 +48,8 @@ export default function NodeGraphFlow({
     
     // Calculate positions for nodes
     const promptNodes = Array.from(state.nodes.values()).filter(n => n.metadata?.isPrompt);
-    const ideaNodes = Array.from(state.nodes.values()).filter(n => !n.metadata?.isPrompt);
+    const promptToolNodes = Array.from(state.nodes.values()).filter(n => n.metadata?.isPromptTool);
+    const ideaNodes = Array.from(state.nodes.values()).filter(n => !n.metadata?.isPrompt && !n.metadata?.isPromptTool);
     
     // Position prompt nodes at the top
     promptNodes.forEach((node, index) => {
@@ -110,6 +113,18 @@ export default function NodeGraphFlow({
           node,
           onSelect: () => selectNode(node.id),
           onGenerateChildren: () => onNodeGenerate?.(node.id),
+        },
+      });
+    });
+
+    // Add prompt tool nodes (draggable nodes)
+    promptToolNodes.forEach(node => {
+      flowNodes.push({
+        id: node.id,
+        type: 'promptToolNode',
+        position: node.position || { x: 100, y: 100 },
+        data: { 
+          node,
         },
       });
     });
