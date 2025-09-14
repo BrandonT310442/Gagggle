@@ -16,7 +16,7 @@ import { categorizeNodes, exportGraph } from './services/api';
 function HomePageContent() {
   const [fileName, setFileName] = useState('Untitled Document');
   const [isPanMode, setIsPanMode] = useState(false);
-  const { generateIdeas, createEmptyNote, state, isLoading, setSocket, setUserId } = useIdeaGraph();
+  const { generateIdeas, createEmptyNote, createPromptToolNode, state, isLoading, setSocket, setUserId } = useIdeaGraph();
   const [currentSocket, setCurrentSocket] = useState<Socket | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string>('');
   const socketRef = useRef<Socket | null>(null);
@@ -60,6 +60,8 @@ function HomePageContent() {
             provider: data.provider as 'groq' | 'cohere' | 'mock',
             model: data.model,
           },
+          // Center the initial prompt
+          position: isFirstPrompt ? { x: 400, y: 100 } : undefined,
         });
 
         // Notify other users that idea generation completed successfully
@@ -210,6 +212,7 @@ function HomePageContent() {
             <ToolBar 
               onPanModeChange={setIsPanMode} 
               onNoteToolClick={createEmptyNote}
+              onPromptToolClick={createPromptToolNode}
             />
           </div>
 

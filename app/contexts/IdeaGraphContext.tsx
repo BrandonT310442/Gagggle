@@ -7,9 +7,16 @@ import { ideaGenerationService } from '../services/ideaGeneration';
 
 interface IdeaGraphContextType {
   state: IdeaGraphState;
-  generateIdeas: (request: Omit<GenerateIdeasRequest, 'parentNode'> & { parentNodeId?: string }) => Promise<void>;
+  generateIdeas: (request: Omit<GenerateIdeasRequest, 'parentNode'> & { 
+    parentNodeId?: string; 
+    createPromptNode?: boolean;
+    position?: { x: number; y: number };
+  }) => Promise<void>;
   createEmptyNote: () => void;
+  createPromptToolNode: () => void;
+  removeNode: (nodeId: string) => void;
   updateNodeContent: (nodeId: string, content: string) => void;
+  updateNodePosition: (nodeId: string, position: { x: number; y: number }) => void;
   selectNode: (nodeId: string | undefined) => void;
   clearGraph: () => void;
   isLoading: boolean;
@@ -149,7 +156,11 @@ export function IdeaGraphProvider({ children }: Readonly<{ children: ReactNode }
     return updatedNodes;
   }, []);
 
-  const generateIdeas = useCallback(async (request: Omit<GenerateIdeasRequest, 'parentNode'> & { parentNodeId?: string }) => {
+  const generateIdeas = useCallback(async (request: Omit<GenerateIdeasRequest, 'parentNode'> & { 
+    parentNodeId?: string;
+    createPromptNode?: boolean;
+    position?: { x: number; y: number };
+  }) => {
     console.log('[IdeaGraphContext] generateIdeas called with request:', request);
     console.log('[IdeaGraphContext] Current socket:', !!socket, 'userId:', userId);
     setIsLoading(true);
@@ -161,14 +172,58 @@ export function IdeaGraphProvider({ children }: Readonly<{ children: ReactNode }
     const placeholderNodes: IdeaNode[] = [];
     const placeholderIds: string[] = [];
 
+    // Store prompt placeholder ID for reference
+    let promptPlaceholderId: string | undefined;
+    
+    // If creating a prompt node, add a placeholder for it too
+    if (request.createPromptNode && request.position) {
+      promptPlaceholderId = `placeholder-prompt-${Date.now()}`;
+      placeholderIds.push(promptPlaceholderId);
+      
+      const promptPlaceholder: IdeaNode = {
+        id: promptPlaceholderId,
+        content: request.prompt,
+        parentId: undefined,
+        childIds: [],
+        metadata: {
+          isPrompt: true,
+          isLoading: true,
+          generatedBy: 'ai',
+          modelProvider: request.modelConfig?.provider,
+          modelName: request.modelConfig?.model,
+          modelLabel: request.modelConfig?.modelLabel,
+        },
+        createdBy: 'system',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        position: request.position,
+      };
+      
+      placeholderNodes.push(promptPlaceholder);
+    }
+
+    // Determine parent ID for idea placeholders
+    const ideaParentId = promptPlaceholderId || parentNode?.id;
+
     for (let i = 0; i < request.count; i++) {
       const placeholderId = `placeholder-${Date.now()}-${i}`;
       placeholderIds.push(placeholderId);
 
+      // Calculate position for placeholder based on request position
+      let placeholderPosition;
+      if (request.position) {
+        const spacing = 300;
+        const startX = request.position.x - ((request.count - 1) * spacing / 2);
+        placeholderPosition = {
+          x: startX + (i * spacing),
+          y: request.position.y + 200 // Position below the prompt node
+        };
+      }
+
       const placeholderNode: IdeaNode = {
         id: placeholderId,
         content: '', // Empty content for loading state
-        parentId: parentNode?.id,
+        parentId: ideaParentId,
         childIds: [],
         metadata: {
           isLoading: true,
@@ -180,6 +235,7 @@ export function IdeaGraphProvider({ children }: Readonly<{ children: ReactNode }
         createdBy: 'system',
         createdAt: new Date(),
         updatedAt: new Date(),
+        position: placeholderPosition, // Add position if available
       };
 
       placeholderNodes.push(placeholderNode);
@@ -207,11 +263,12 @@ export function IdeaGraphProvider({ children }: Readonly<{ children: ReactNode }
         }
       });
 
-      const positionedNodes = calculateNodePositions(newNodes, newRootNodes);
+      // Don't recalculate positions if we're using custom positioning
+      const finalNodes = request.position ? newNodes : calculateNodePositions(newNodes, newRootNodes);
 
       return {
         ...prevState,
-        nodes: positionedNodes,
+        nodes: finalNodes,
         rootNodes: newRootNodes,
       };
     });
@@ -255,8 +312,26 @@ export function IdeaGraphProvider({ children }: Readonly<{ children: ReactNode }
             }
           });
 
-          // Add real nodes
-          response.ideas.forEach(idea => {
+          // Add real nodes with positioning
+          response.ideas.forEach((idea) => {
+            // If position is provided and this is a prompt node, use the provided position
+            if (request.position && idea.metadata?.isPrompt) {
+              idea.position = request.position;
+            } else if (request.position && idea.parentId) {
+              // Position child nodes relative to the parent position
+              const parentNode = response.ideas.find(n => n.id === idea.parentId) || newNodes.get(idea.parentId);
+              if (parentNode) {
+                const childIndex = response.ideas.filter(n => n.parentId === idea.parentId).indexOf(idea);
+                const childCount = response.ideas.filter(n => n.parentId === idea.parentId).length;
+                const spacing = 300;
+                const startX = (request.position.x || 0) - ((childCount - 1) * spacing / 2);
+                idea.position = {
+                  x: startX + (childIndex * spacing),
+                  y: (request.position.y || 0) + 200
+                };
+              }
+            }
+            
             newNodes.set(idea.id, idea);
 
             if (!idea.parentId) {
@@ -273,7 +348,8 @@ export function IdeaGraphProvider({ children }: Readonly<{ children: ReactNode }
             }
           });
 
-          const positionedNodes = calculateNodePositions(newNodes, newRootNodes);
+          // Only recalculate positions if no position was provided
+          const positionedNodes = request.position ? newNodes : calculateNodePositions(newNodes, newRootNodes);
 
           return {
             ...prevState,
@@ -324,11 +400,10 @@ export function IdeaGraphProvider({ children }: Readonly<{ children: ReactNode }
           }
         });
 
-        const positionedNodes = calculateNodePositions(newNodes, newRootNodes);
-
+        // Don't recalculate positions on error
         return {
           ...prevState,
-          nodes: positionedNodes,
+          nodes: newNodes,
           rootNodes: newRootNodes,
         };
       });
@@ -390,6 +465,91 @@ export function IdeaGraphProvider({ children }: Readonly<{ children: ReactNode }
     }
   }, [state.nodes, getNextManualNotePosition, socket, userId]);
 
+  const createPromptToolNode = useCallback(() => {
+    console.log('[IdeaGraphContext] createPromptToolNode called');
+    
+    // Generate unique ID for the new prompt tool node
+    const toolId = `prompt-tool-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+    
+    // Find the next position in the deterministic grid
+    const position = getNextManualNotePosition(state.nodes);
+    
+    // Create the prompt tool node
+    const promptToolNode: IdeaNode = {
+      id: toolId,
+      content: '', // Empty content for prompt tool
+      parentId: undefined, // Prompt tools are root-level
+      childIds: [],
+      metadata: {
+        generatedBy: 'user',
+        isPromptTool: true,
+        createdAt: new Date().toISOString(),
+      },
+      createdBy: userId || 'unknown',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      position: position,
+    };
+
+    // Add the node to the state
+    setState(prevState => {
+      const newNodes = new Map(prevState.nodes);
+      const newRootNodes = [...prevState.rootNodes];
+
+      newNodes.set(promptToolNode.id, promptToolNode);
+      newRootNodes.push(promptToolNode.id);
+
+      return {
+        ...prevState,
+        nodes: newNodes,
+        rootNodes: newRootNodes,
+        selectedNodeId: promptToolNode.id, // Auto-select the new prompt tool
+      };
+    });
+
+    // Sync with other users
+    if (socket && userId) {
+      console.log('[IdeaGraphContext] Emitting sync-ideas for new prompt tool node');
+      socket.emit('sync-ideas', {
+        userId,
+        ideas: [promptToolNode],
+        parentNodeId: null
+      });
+    }
+  }, [state.nodes, getNextManualNotePosition, socket, userId]);
+
+  const removeNode = useCallback((nodeId: string) => {
+    console.log('[IdeaGraphContext] removeNode called for node:', nodeId);
+    
+    setState(prevState => {
+      const newNodes = new Map(prevState.nodes);
+      const newRootNodes = [...prevState.rootNodes];
+      
+      // Remove the node
+      newNodes.delete(nodeId);
+      
+      // Remove from root nodes if present
+      const rootIndex = newRootNodes.indexOf(nodeId);
+      if (rootIndex > -1) {
+        newRootNodes.splice(rootIndex, 1);
+      }
+      
+      // Remove from any parent's childIds
+      newNodes.forEach(node => {
+        if (node.childIds.includes(nodeId)) {
+          node.childIds = node.childIds.filter(id => id !== nodeId);
+        }
+      });
+      
+      return {
+        ...prevState,
+        nodes: newNodes,
+        rootNodes: newRootNodes,
+        selectedNodeId: prevState.selectedNodeId === nodeId ? undefined : prevState.selectedNodeId,
+      };
+    });
+  }, []);
+
   const updateNodeContent = useCallback((nodeId: string, content: string) => {
     console.log('[IdeaGraphContext] updateNodeContent called for node:', nodeId, 'content:', content);
     
@@ -425,6 +585,29 @@ export function IdeaGraphProvider({ children }: Readonly<{ children: ReactNode }
     });
   }, [socket, userId]);
 
+  const updateNodePosition = useCallback((nodeId: string, position: { x: number; y: number }) => {
+    setState(prevState => {
+      const newNodes = new Map(prevState.nodes);
+      const node = newNodes.get(nodeId);
+      
+      if (node) {
+        const updatedNode = {
+          ...node,
+          position,
+          updatedAt: new Date(),
+        };
+        newNodes.set(nodeId, updatedNode);
+
+        return {
+          ...prevState,
+          nodes: newNodes,
+        };
+      }
+      
+      return prevState;
+    });
+  }, []);
+
   const selectNode = useCallback((nodeId: string | undefined) => {
     setState(prev => ({
       ...prev,
@@ -446,7 +629,10 @@ export function IdeaGraphProvider({ children }: Readonly<{ children: ReactNode }
       state,
       generateIdeas,
       createEmptyNote,
+      createPromptToolNode,
+      removeNode,
       updateNodeContent,
+      updateNodePosition,
       selectNode,
       clearGraph,
       isLoading,
