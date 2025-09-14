@@ -25,24 +25,24 @@ export default function ToolBar({ onPanModeChange }: ToolBarProps) {
   };
 
   const getToolStyle = (index: number) => ({
-    backgroundColor: activeToolIndex === index ? '#f3f4f6' : 'transparent',
-    borderRadius: '4px',
-    padding: '2px',
+    backgroundColor: activeToolIndex === index ? '#000000' : 'transparent',
   });
 
   return (
-    <div className='bg-white box-border flex gap-6 items-center justify-start px-6 py-2 rounded-lg shadow-lg border border-gray-200'>
+    <div className='bg-white box-border flex gap-6 items-center justify-start px-6 py-2 border-gray-200'>
       {/* Cursor Tool */}
       <button
-        className='overflow-clip relative shrink-0 size-6 cursor-pointer hover:bg-gray-100 rounded transition-colors'
+        className='overflow-clip relative shrink-0 size-6 cursor-pointer transition-colors hover:bg-gray-100'
         style={getToolStyle(0)}
         onClick={() => handleToolClick(0)}
-        title="Select tool"
+        title='Select tool'
       >
         <div className='absolute inset-[16.09%_16.07%_14.41%_14.41%]'>
           <img
             alt='Cursor tool'
-            className='block max-w-none size-full'
+            className={`block max-w-none size-full ${
+              activeToolIndex === 0 ? 'brightness-0 invert' : ''
+            }`}
             src={img}
           />
         </div>
@@ -50,15 +50,17 @@ export default function ToolBar({ onPanModeChange }: ToolBarProps) {
 
       {/* Pan Tool */}
       <button
-        className='overflow-clip relative shrink-0 size-6 cursor-pointer hover:bg-gray-100 rounded transition-colors'
+        className='overflow-clip relative shrink-0 size-6 cursor-pointer transition-colors hover:bg-gray-100'
         style={getToolStyle(1)}
         onClick={() => handleToolClick(1)}
-        title="Pan tool"
+        title='Pan tool'
       >
         <div className='absolute inset-[12.5%_15.29%_12.5%_17.95%]'>
           <img
             alt='Pan tool'
-            className='block max-w-none size-full'
+            className={`block max-w-none size-full ${
+              activeToolIndex === 1 ? 'brightness-0 invert' : ''
+            }`}
             src={img1}
           />
         </div>
@@ -66,15 +68,17 @@ export default function ToolBar({ onPanModeChange }: ToolBarProps) {
 
       {/* Comment Tool */}
       <button
-        className='overflow-clip relative shrink-0 size-6 cursor-pointer hover:bg-gray-100 rounded transition-colors'
+        className='overflow-clip relative shrink-0 size-6 cursor-pointer transition-colors hover:bg-gray-100'
         style={getToolStyle(2)}
         onClick={() => handleToolClick(2)}
-        title="Comment tool"
+        title='Comment tool'
       >
         <div className='absolute inset-[8.333%]'>
           <img
             alt='Comment tool'
-            className='block max-w-none size-full'
+            className={`block max-w-none size-full ${
+              activeToolIndex === 2 ? 'brightness-0 invert' : ''
+            }`}
             src={img2}
           />
         </div>
@@ -93,15 +97,17 @@ export default function ToolBar({ onPanModeChange }: ToolBarProps) {
 
       {/* Note Tool */}
       <button
-        className='overflow-clip relative shrink-0 size-6 cursor-pointer hover:bg-gray-100 rounded transition-colors'
+        className='overflow-clip relative shrink-0 size-6 cursor-pointer transition-colors hover:bg-gray-100'
         style={getToolStyle(3)}
         onClick={() => handleToolClick(3)}
-        title="Note tool"
+        title='Note tool'
       >
         <div className='absolute inset-[16.67%_8.33%]'>
           <img
             alt='Note tool'
-            className='block max-w-none size-full'
+            className={`block max-w-none size-full ${
+              activeToolIndex === 3 ? 'brightness-0 invert' : ''
+            }`}
             src={img4}
           />
         </div>
@@ -109,15 +115,17 @@ export default function ToolBar({ onPanModeChange }: ToolBarProps) {
 
       {/* Prompt Tool */}
       <button
-        className='overflow-clip relative shrink-0 size-6 cursor-pointer hover:bg-gray-100 rounded transition-colors'
+        className='overflow-clip relative shrink-0 size-6 cursor-pointer transition-colors hover:bg-gray-100'
         style={getToolStyle(4)}
         onClick={() => handleToolClick(4)}
-        title="Prompt tool"
+        title='Prompt tool'
       >
         <div className='absolute h-[22.118px] left-0 top-0 w-[25.067px]'>
           <img
             alt='Prompt tool'
-            className='block max-w-none size-full'
+            className={`block max-w-none size-full ${
+              activeToolIndex === 4 ? 'brightness-0 invert' : ''
+            }`}
             src={img5}
           />
         </div>
@@ -125,17 +133,19 @@ export default function ToolBar({ onPanModeChange }: ToolBarProps) {
 
       {/* Merge Tool */}
       <button
-        className='overflow-clip relative shrink-0 size-6 cursor-pointer hover:bg-gray-100 rounded transition-colors'
+        className='overflow-clip relative shrink-0 size-6 cursor-pointer transition-colors hover:bg-gray-100'
         style={getToolStyle(5)}
         onClick={() => handleToolClick(5)}
-        title="Merge tool"
+        title='Merge tool'
       >
         <div className='absolute flex inset-[14.24%_22.57%] items-center justify-center'>
           <div className='flex-none h-[17.165px] scale-y-[-100%] w-[13.165px]'>
             <div className='relative size-full'>
               <img
                 alt='Merge tool'
-                className='block max-w-none size-full'
+                className={`block max-w-none size-full ${
+                  activeToolIndex === 5 ? 'brightness-0 invert' : ''
+                }`}
                 src={img6}
               />
             </div>
