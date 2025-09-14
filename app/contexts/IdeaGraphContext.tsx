@@ -13,6 +13,7 @@ interface IdeaGraphContextType {
     position?: { x: number; y: number };
   }) => Promise<void>;
   createEmptyNote: () => void;
+  createComment: () => void;
   createPromptToolNode: () => void;
   removeNode: (nodeId: string) => void;
   updateNodeContent: (nodeId: string, content: string) => void;
@@ -155,6 +156,37 @@ export function IdeaGraphProvider({ children }: Readonly<{ children: ReactNode }
     // Calculate position based on index
     const col = noteIndex % gridCols;
     const row = Math.floor(noteIndex / gridCols);
+    
+    const x = startX + (col * cellWidth);
+    const y = startY + (row * cellHeight);
+    
+    return { x, y };
+  }, []);
+
+  // Deterministic positioning for comments to ensure consistency across collaborators
+  const getNextCommentPosition = useCallback((existingNodes: Map<string, IdeaNode>) => {
+    // Count existing comments to determine position index
+    const comments = Array.from(existingNodes.values())
+      .filter(node => node.metadata?.isComment)
+      .sort((a, b) => {
+        // Safe date comparison - handle both Date objects and strings
+        const dateA = a.createdAt instanceof Date ? a.createdAt.getTime() : new Date(a.createdAt).getTime();
+        const dateB = b.createdAt instanceof Date ? b.createdAt.getTime() : new Date(b.createdAt).getTime();
+        return dateA - dateB;
+      }); // Sort by creation time for consistency
+
+    const commentIndex = comments.length;
+    
+    // Define a simple grid pattern for comments - separate from manual notes
+    const gridCols = 4;
+    const cellWidth = 350;
+    const cellHeight = 200;
+    const startX = 100;
+    const startY = 500; // Position comments below manual notes
+    
+    // Calculate position based on index
+    const col = commentIndex % gridCols;
+    const row = Math.floor(commentIndex / gridCols);
     
     const x = startX + (col * cellWidth);
     const y = startY + (row * cellHeight);
@@ -516,6 +548,52 @@ export function IdeaGraphProvider({ children }: Readonly<{ children: ReactNode }
     // Note: Draft nodes are not synced immediately. They will be synced when saved.
   }, [state.nodes, getNextManualNotePosition, socket, userId]);
 
+  const createComment = useCallback(() => {
+    console.log('[IdeaGraphContext] createComment called');
+    
+    // Generate unique ID for the new comment
+    const commentId = `comment-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
+    
+    // Find the next position in the deterministic grid
+    const position = getNextCommentPosition(state.nodes);
+    
+    // Create the empty comment node as a draft (not shared until saved)
+    const emptyComment: IdeaNode = {
+      id: commentId,
+      content: '', // Empty content for manual editing
+      parentId: undefined, // Comments are root-level
+      childIds: [],
+      metadata: {
+        generatedBy: 'user',
+        isComment: true,
+        isDraft: true, // Mark as draft - won't be shared until saved
+        createdAt: new Date().toISOString(),
+      },
+      createdBy: userId || 'unknown',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      position: position,
+    };
+
+    // Add the comment to the state
+    setState(prevState => {
+      const newNodes = new Map(prevState.nodes);
+      const newRootNodes = [...prevState.rootNodes];
+
+      newNodes.set(emptyComment.id, emptyComment);
+      newRootNodes.push(emptyComment.id);
+
+      return {
+        ...prevState,
+        nodes: newNodes,
+        rootNodes: newRootNodes,
+        selectedNodeId: emptyComment.id, // Auto-select the new comment
+      };
+    });
+
+    // Note: Draft nodes are not synced immediately. They will be synced when saved.
+  }, [state.nodes, getNextCommentPosition, socket, userId]);
+
   const createPromptToolNode = useCallback(() => {
     console.log('[IdeaGraphContext] createPromptToolNode called');
     
@@ -707,6 +785,7 @@ export function IdeaGraphProvider({ children }: Readonly<{ children: ReactNode }
       state,
       generateIdeas,
       createEmptyNote,
+      createComment,
       createPromptToolNode,
       removeNode,
       updateNodeContent,
