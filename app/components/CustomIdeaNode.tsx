@@ -1,7 +1,7 @@
 'use client';
 
 import { Handle, Position, NodeProps } from 'reactflow';
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import Lottie from 'lottie-react';
 import loadingAnimation from '../../public/gagggleLoading.json';
 
@@ -46,9 +46,136 @@ const OpenAIIcon = () => {
 
 export default function CustomIdeaNode({ data, selected }: NodeProps) {
   const [isHovered, setIsHovered] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editContent, setEditContent] = useState(data.node.content);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const node = data.node;
 
-  const getModelIcon = (modelName?: string) => {
+  const isManualNote = node.metadata?.isManualNote;
+  const isEmptyManualNote = isManualNote && !node.content.trim();
+  const isReadOnlyManualNote = isManualNote && node.content.trim();
+
+  // Debug logging
+  useEffect(() => {
+    if (isManualNote) {
+      console.log('CustomIdeaNode MANUAL NOTE render state:', { 
+        nodeId: node.id, 
+        isManualNote, 
+        isEditing, 
+        selected, 
+        content: node.content,
+        editContent,
+        shouldShowTextarea: !node.metadata?.isLoading && isEditing,
+        shouldShowClickable: !node.metadata?.isLoading && !isEditing && isManualNote
+      });
+    }
+  });
+
+  // Update edit content when node content changes
+  useEffect(() => {
+    setEditContent(node.content);
+  }, [node.content]);
+
+  // Auto-focus and start editing for new manual notes (only empty ones)
+  useEffect(() => {
+    console.log('Auto-edit useEffect', { isManualNote, hasContent: !!node.content, selected, isEmptyManualNote });
+    if (isEmptyManualNote && selected) {
+      console.log('Starting auto-edit for new empty manual note');
+      setIsEditing(true);
+    }
+  }, [isEmptyManualNote, selected]);
+
+  // Auto-focus textarea when editing starts
+  useEffect(() => {
+    if (isEditing && textareaRef.current) {
+      // Use setTimeout to ensure the textarea is fully rendered
+      setTimeout(() => {
+        if (textareaRef.current) {
+          textareaRef.current.focus();
+          textareaRef.current.select();
+        }
+      }, 10);
+    }
+  }, [isEditing]);
+
+  const handleStartEdit = (e: React.MouseEvent) => {
+    console.log('handleStartEdit called', { isManualNote, nodeId: node.id, isReadOnlyManualNote });
+    // Only allow editing if it's an empty manual note (not read-only)
+    if (isEmptyManualNote) {
+      e.stopPropagation();
+      e.preventDefault();
+      setIsEditing(true);
+      setEditContent(node.content);
+    }
+  };
+
+  const handleKeyDownStartEdit = (e: React.KeyboardEvent) => {
+    // Only allow keyboard editing if it's an empty manual note (not read-only)
+    if (isEmptyManualNote && (e.key === 'Enter' || e.key === ' ')) {
+      e.stopPropagation();
+      setIsEditing(true);
+      setEditContent(node.content);
+    }
+  };
+
+  const handleSaveEdit = () => {
+    console.log('handleSaveEdit called', { editContent, nodeContent: node.content, hasCallback: !!data.onUpdateContent });
+    if (data.onUpdateContent && editContent !== node.content) {
+      data.onUpdateContent(node.id, editContent);
+    }
+    setIsEditing(false);
+  };
+
+  const handleCancelEdit = () => {
+    console.log('handleCancelEdit called - resetting edit mode', { 
+      beforeEdit: isEditing, 
+      nodeContent: node.content,
+      editContent: editContent.trim()
+    });
+    
+    // If the manual note is empty (no original content), delete it entirely
+    if (isEmptyManualNote) {
+      console.log('Deleting empty manual note');
+      if (data.onRemoveNode) {
+        data.onRemoveNode(node.id);
+      }
+      return;
+    }
+    
+    // Otherwise just reset editing state
+    setEditContent(node.content);
+    setIsEditing(false);
+    
+    // Force blur to remove focus from any active element
+    if (textareaRef.current) {
+      textareaRef.current.blur();
+    }
+    
+    console.log('handleCancelEdit - should now be false');
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    console.log('handleKeyDown called with key:', e.key);
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSaveEdit();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      e.stopPropagation();
+      handleCancelEdit();
+    }
+  };
+
+  const ManualIcon = () => {
+    return (
+      <div className='relative w-4 h-4 flex items-center justify-center'>
+        <div className='text-gray-600 text-xs font-bold'>M</div>
+      </div>
+    );
+  };
+
+  const getModelIcon = (modelName?: string, isManualNote?: boolean) => {
+    if (isManualNote) return <ManualIcon />;
     if (!modelName) return <MetaIcon />;
 
     if (modelName.includes('llama')) {
@@ -64,7 +191,8 @@ export default function CustomIdeaNode({ data, selected }: NodeProps) {
     return <MetaIcon />;
   };
 
-  const formatModelName = (modelName?: string, modelLabel?: string) => {
+  const formatModelName = (modelName?: string, modelLabel?: string, isManualNote?: boolean) => {
+    if (isManualNote) return 'Manual Mode';
     if (modelLabel) return modelLabel;
     if (!modelName) return 'Unknown Model';
 
@@ -102,11 +230,12 @@ export default function CustomIdeaNode({ data, selected }: NodeProps) {
           {/* Model info section */}
           <div className='box-border flex gap-2 items-center justify-start px-0 py-2 relative shrink-0'>
             <div className='flex gap-1 items-center justify-start relative shrink-0'>
-              {getModelIcon(node.metadata?.modelName)}
+              {getModelIcon(node.metadata?.modelName, node.metadata?.isManualNote)}
               <div className="font-['Inter'] text-xs font-normal leading-4 text-black whitespace-nowrap">
                 {formatModelName(
                   node.metadata?.modelName,
-                  node.metadata?.modelLabel
+                  node.metadata?.modelLabel,
+                  node.metadata?.isManualNote
                 )}
               </div>
             </div>
@@ -129,6 +258,61 @@ export default function CustomIdeaNode({ data, selected }: NodeProps) {
                   loop={true}
                 />
                 <p className='text-xs text-gray-500 mt-2'>Generating idea...</p>
+              </div>
+            ) : isEditing ? (
+              <div className='w-full'>
+                <textarea
+                  ref={textareaRef}
+                  value={editContent}
+                  onChange={(e) => setEditContent(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  onBlur={(e) => {
+                    // Prevent auto-save on blur for better UX
+                    if (!e.relatedTarget || !e.currentTarget.parentElement?.contains(e.relatedTarget as Node)) {
+                      handleSaveEdit();
+                    }
+                  }}
+                  className="font-['Syne'] text-base font-normal leading-6 text-black w-full resize-none border-none outline-none bg-transparent placeholder-gray-500"
+                  style={{
+                    fontFamily: 'Syne, sans-serif',
+                    minHeight: '2.5rem',
+                  }}
+                  placeholder='Enter your idea...'
+                />
+                <div className='flex justify-between items-center mt-2 text-xs text-gray-500'>
+                  <span>Enter to save, Esc to cancel</span>
+                  <div className='flex gap-2'>
+                    <button
+                      onClick={handleSaveEdit}
+                      className='px-3 py-1 bg-black text-white rounded text-xs hover:bg-gray-800'
+                    >
+                      Save
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        handleCancelEdit();
+                      }}
+                      className='px-3 py-1 bg-gray-500 text-white rounded text-xs hover:bg-gray-600'
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ) : isEmptyManualNote ? (
+              <button
+                onClick={handleStartEdit}
+                onKeyDown={handleKeyDownStartEdit}
+                className='cursor-text hover:bg-gray-50 p-2 -m-2 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 w-full text-left'
+                type='button'
+              >
+                {node.content || 'Click to add your idea...'}
+              </button>
+            ) : isReadOnlyManualNote ? (
+              <div className='w-full p-2 -m-2 text-left'>
+                {node.content}
               </div>
             ) : (
               node.content

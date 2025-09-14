@@ -56,7 +56,10 @@ export function IdeaGraphProvider({ children }: Readonly<{ children: ReactNode }
           newNodes.set(idea.id, idea);
 
           if (!idea.parentId) {
-            newRootNodes.push(idea.id);
+            // Only add to root nodes if it doesn't already exist
+            if (!newRootNodes.includes(idea.id)) {
+              newRootNodes.push(idea.id);
+            }
           } else {
             const parent = newNodes.get(idea.parentId);
             if (parent) {
@@ -82,12 +85,49 @@ export function IdeaGraphProvider({ children }: Readonly<{ children: ReactNode }
       // Graph state sync handler - currently not implemented as we sync individual ideas instead
     };
 
+    const handleRemoveNode = (data: { userId: string; nodeId: string }) => {
+      console.log('[IdeaGraphContext] Received remove-node from user:', data.userId, 'nodeId:', data.nodeId);
+      
+      // Don't process our own removal events
+      if (data.userId === userId) return;
+      
+      setState(prevState => {
+        const newNodes = new Map(prevState.nodes);
+        const newRootNodes = [...prevState.rootNodes];
+        
+        // Remove the node
+        newNodes.delete(data.nodeId);
+        
+        // Remove from root nodes if present
+        const rootIndex = newRootNodes.indexOf(data.nodeId);
+        if (rootIndex > -1) {
+          newRootNodes.splice(rootIndex, 1);
+        }
+        
+        // Remove from any parent's childIds
+        newNodes.forEach(node => {
+          if (node.childIds.includes(data.nodeId)) {
+            node.childIds = node.childIds.filter(id => id !== data.nodeId);
+          }
+        });
+        
+        return {
+          ...prevState,
+          nodes: newNodes,
+          rootNodes: newRootNodes,
+          selectedNodeId: prevState.selectedNodeId === data.nodeId ? undefined : prevState.selectedNodeId,
+        };
+      });
+    };
+
     socket.on('sync-ideas', handleSyncIdeas);
     socket.on('sync-graph-state', handleSyncGraphState);
+    socket.on('remove-node', handleRemoveNode);
 
     return () => {
       socket.off('sync-ideas', handleSyncIdeas);
       socket.off('sync-graph-state', handleSyncGraphState);
+      socket.off('remove-node', handleRemoveNode);
     };
   }, [socket]);
 
@@ -96,7 +136,12 @@ export function IdeaGraphProvider({ children }: Readonly<{ children: ReactNode }
     // Count existing manual notes to determine position index
     const manualNotes = Array.from(existingNodes.values())
       .filter(node => node.metadata?.isManualNote)
-      .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime()); // Sort by creation time for consistency
+      .sort((a, b) => {
+        // Safe date comparison - handle both Date objects and strings
+        const dateA = a.createdAt instanceof Date ? a.createdAt.getTime() : new Date(a.createdAt).getTime();
+        const dateB = b.createdAt instanceof Date ? b.createdAt.getTime() : new Date(b.createdAt).getTime();
+        return dateA - dateB;
+      }); // Sort by creation time for consistency
 
     const noteIndex = manualNotes.length;
     
@@ -538,6 +583,9 @@ export function IdeaGraphProvider({ children }: Readonly<{ children: ReactNode }
       const newNodes = new Map(prevState.nodes);
       const newRootNodes = [...prevState.rootNodes];
       
+      // Get the node before removing it (for sync purposes)
+      const nodeToRemove = newNodes.get(nodeId);
+      
       // Remove the node
       newNodes.delete(nodeId);
       
@@ -553,6 +601,15 @@ export function IdeaGraphProvider({ children }: Readonly<{ children: ReactNode }
           node.childIds = node.childIds.filter(id => id !== nodeId);
         }
       });
+
+      // Sync node removal with other users
+      if (socket && userId && nodeToRemove) {
+        console.log('[IdeaGraphContext] Emitting node removal to other users');
+        socket.emit('remove-node', {
+          userId,
+          nodeId: nodeId
+        });
+      }
       
       return {
         ...prevState,
@@ -561,7 +618,7 @@ export function IdeaGraphProvider({ children }: Readonly<{ children: ReactNode }
         selectedNodeId: prevState.selectedNodeId === nodeId ? undefined : prevState.selectedNodeId,
       };
     });
-  }, []);
+  }, [socket, userId]);
 
   const updateNodeContent = useCallback((nodeId: string, content: string) => {
     console.log('[IdeaGraphContext] updateNodeContent called for node:', nodeId, 'content:', content);
@@ -611,6 +668,16 @@ export function IdeaGraphProvider({ children }: Readonly<{ children: ReactNode }
         };
         newNodes.set(nodeId, updatedNode);
 
+        // Sync position update with other users
+        if (socket && userId) {
+          console.log('[IdeaGraphContext] Emitting sync-ideas for position update');
+          socket.emit('sync-ideas', {
+            userId,
+            ideas: [updatedNode],
+            parentNodeId: updatedNode.parentId
+          });
+        }
+
         return {
           ...prevState,
           nodes: newNodes,
@@ -619,7 +686,7 @@ export function IdeaGraphProvider({ children }: Readonly<{ children: ReactNode }
       
       return prevState;
     });
-  }, []);
+  }, [socket, userId]);
 
   const selectNode = useCallback((nodeId: string | undefined) => {
     setState(prev => ({
