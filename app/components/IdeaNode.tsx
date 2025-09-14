@@ -5,6 +5,7 @@ import { IdeaNode as IdeaNodeType } from '../types/idea';
 import Lottie from 'lottie-react';
 import loadingAnimation from '../../public/gagggleLoading.json';
 import Draggable from 'react-draggable';
+import { useXarrow } from 'react-xarrows';
 
 interface IdeaNodeProps {
   node: IdeaNodeType;
@@ -60,6 +61,7 @@ export default function IdeaNode({
 }: Readonly<IdeaNodeProps>) {
   const [isHovered, setIsHovered] = useState(false);
   const nodeRef = useRef<HTMLDivElement>(null);
+  const updateXarrow = useXarrow();
 
   const isPromptNode = node.metadata?.isPrompt;
 
@@ -98,8 +100,13 @@ export default function IdeaNode({
   };
 
   return (
-    <Draggable nodeRef={nodeRef}>
+    <Draggable 
+      nodeRef={nodeRef}
+      onDrag={updateXarrow}
+      onStop={updateXarrow}
+    >
       <div
+        id={node.id}
         ref={nodeRef}
         className={`
           bg-white box-border flex flex-col gap-6 items-start justify-start p-6 relative
