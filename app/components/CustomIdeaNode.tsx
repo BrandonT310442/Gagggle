@@ -44,12 +44,18 @@ const OpenAIIcon = () => {
   );
 };
 
-export default function CustomIdeaNode({ data, selected }: NodeProps) {
+export default function CustomIdeaNode({ data, selected, draggable }: NodeProps) {
   const [isHovered, setIsHovered] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editContent, setEditContent] = useState(data.node.content);
+  const [showOptionsMenu, setShowOptionsMenu] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const node = data.node;
+  
+  const isMergeMode = data.isMergeMode || false;
+  const isSelectedForMerge = data.isSelectedForMerge || false;
+  const onToggleSelection = data.onToggleSelection;
 
   const isManualNote = node.metadata?.isManualNote;
   const isEmptyManualNote = isManualNote && !node.content.trim();
@@ -281,6 +287,68 @@ export default function CustomIdeaNode({ data, selected }: NodeProps) {
   };
 
   const hasChildren = node.childIds && node.childIds.length > 0;
+  const isLeafNode = !hasChildren;
+  
+  // Handle click outside to close menu
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (showOptionsMenu) {
+        // Check if click is outside the menu and the plus button
+        const target = event.target as Node;
+        const isMenuClick = menuRef.current && menuRef.current.contains(target);
+        const isPlusButton = (event.target as HTMLElement)?.getAttribute?.('aria-label') === 'Add child node';
+        
+        if (!isMenuClick && !isPlusButton) {
+          setShowOptionsMenu(false);
+        }
+      }
+    };
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && showOptionsMenu) {
+        setShowOptionsMenu(false);
+      }
+    };
+
+    if (showOptionsMenu) {
+      // Use capture phase to catch events before they're stopped
+      document.addEventListener('mousedown', handleClickOutside, true);
+      document.addEventListener('click', handleClickOutside, true);
+      document.addEventListener('keydown', handleEscape);
+      
+      // Also close on any drag/pan start
+      const handleDragStart = () => {
+        if (showOptionsMenu) {
+          setShowOptionsMenu(false);
+        }
+      };
+      
+      document.addEventListener('dragstart', handleDragStart);
+      document.addEventListener('wheel', handleDragStart);
+      
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside, true);
+        document.removeEventListener('click', handleClickOutside, true);
+        document.removeEventListener('keydown', handleEscape);
+        document.removeEventListener('dragstart', handleDragStart);
+        document.removeEventListener('wheel', handleDragStart);
+      };
+    }
+  }, [showOptionsMenu]);
+  
+  const handleAddPrompt = () => {
+    setShowOptionsMenu(false);
+    if (data.onGenerateChildren) {
+      data.onGenerateChildren(node.id);
+    }
+  };
+  
+  const handleAddIdea = () => {
+    setShowOptionsMenu(false);
+    if (data.onAddManualChild) {
+      data.onAddManualChild(node.id);
+    }
+  };
 
   return (
     <>
@@ -290,8 +358,10 @@ export default function CustomIdeaNode({ data, selected }: NodeProps) {
           ${isComment ? 'bg-gray-50' : 'bg-white'} box-border flex flex-col gap-6 items-start justify-start p-6 relative
           cursor-pointer transition-all duration-200
           ${selected ? 'ring-2 ring-blue-500 shadow-lg' : ''}
+          ${isSelectedForMerge ? 'ring-2 ring-purple-500 shadow-lg' : ''}
           ${isHovered ? 'shadow-xl' : 'shadow-md'}
           ${isComment ? 'border-l-4' : ''}
+          ${isMergeMode ? 'hover:ring-2 hover:ring-purple-300' : ''}
         `}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
@@ -299,6 +369,7 @@ export default function CustomIdeaNode({ data, selected }: NodeProps) {
           width: isComment ? '26rem' : '28rem',
           maxWidth: isComment ? '30rem' : '32rem',
           borderLeftColor: isComment ? userColor : undefined,
+          cursor: isMergeMode ? 'pointer' : 'move',
         }}
       >
         <div className='flex flex-col gap-2 items-start justify-start relative shrink-0 w-full'>
@@ -409,6 +480,55 @@ export default function CustomIdeaNode({ data, selected }: NodeProps) {
             )}
           </div>
         </div>
+        
+        {/* Plus button for leaf nodes */}
+        {isLeafNode && !isManualNote && !isComment && !node.metadata?.isLoading && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowOptionsMenu(!showOptionsMenu);
+            }}
+            className='absolute bottom-3 right-3 w-7 h-7 bg-gray-800 text-white rounded-full flex items-center justify-center hover:bg-black transition-colors shadow-md'
+            aria-label='Add child node'
+          >
+            <span className='text-sm'>+</span>
+          </button>
+        )}
+        
+        {/* Options Menu for Leaf Nodes */}
+        {showOptionsMenu && isLeafNode && !isManualNote && !isComment && (
+          <div
+            ref={menuRef}
+            className='absolute bottom-12 right-2 flex flex-col gap-1 p-1 rounded-md shadow-xl bg-gray-700'
+            style={{
+              minWidth: '160px',
+              zIndex: 9999,
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Arrow pointing down to the plus button */}
+            <div
+              className='absolute -bottom-1 right-3 w-2 h-2 rotate-45 bg-gray-700'
+              style={{ zIndex: -1 }}
+            />
+            
+            <button
+              onClick={handleAddPrompt}
+              className='flex items-center gap-2 px-3 py-2 rounded hover:bg-gray-600 transition-colors text-white text-sm'
+            >
+              <span>✨</span>
+              <span>Add a Prompt</span>
+            </button>
+            
+            <button
+              onClick={handleAddIdea}
+              className='flex items-center gap-2 px-3 py-2 rounded hover:bg-gray-600 transition-colors text-white text-sm'
+            >
+              <span>📄</span>
+              <span>Add Your Idea</span>
+            </button>
+          </div>
+        )}
       </div>
       {hasChildren && (
         <Handle

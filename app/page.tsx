@@ -13,6 +13,7 @@ import FileName from './components/FileName';
 import CursorSharing from './components/CursorSharing';
 import ShareBar from './components/ShareBar';
 import ToolBar from './components/ToolBar';
+import MergeConfirmation from './components/MergeConfirmation';
 import NodeGraphFlow from './components/NodeGraphFlow';
 import { IdeaGraphProvider, useIdeaGraph } from './contexts/IdeaGraphContext';
 import Lottie from 'lottie-react';
@@ -23,19 +24,19 @@ import { categorizeNodes, exportGraph } from './services/api';
 function HomePageContent() {
   const [fileName, setFileName] = useState('Untitled Document');
   const [isPanMode, setIsPanMode] = useState(false);
-  
-  // Merge both destructuring patterns - include all methods from both branches
-  const {
-    generateIdeas,
-    createEmptyNote,
-    createComment, // From main branch
+  const { 
+    generateIdeas, 
+    createEmptyNote, 
+    createComment, 
     createPromptToolNode,
-    state,
-    isLoading,
-    setSocket,
-    setUserId,
+    toggleMergeMode,
+    mergeSelectedNodes,
+    clearMergeSelection,
+    state, 
+    isLoading, 
+    setSocket, 
+    setUserId 
   } = useIdeaGraph();
-  
   const [currentSocket, setCurrentSocket] = useState<Socket | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string>('');
   const socketRef = useRef<Socket | null>(null);
@@ -410,15 +411,31 @@ function HomePageContent() {
                 />
               </div>
 
-              {/* ToolBar - Bottom center (merged to include both createComment and other methods) */}
+              {/* ToolBar - Bottom center */}
               <div className='absolute bottom-4 left-1/2 transform -translate-x-1/2 z-20'>
-                <ToolBar
-                  onPanModeChange={setIsPanMode}
+                <ToolBar 
+                  onPanModeChange={setIsPanMode} 
                   onNoteToolClick={createEmptyNote}
-                  onCommentToolClick={createComment} // From main branch
+                  onCommentToolClick={createComment}
                   onPromptToolClick={createPromptToolNode}
+                  onMergeToolClick={toggleMergeMode}
+                  isMergeMode={state.isMergeMode}
                 />
               </div>
+              
+              {/* Merge Confirmation - Above toolbar when nodes are selected */}
+              {state.isMergeMode && state.selectedNodeIds && state.selectedNodeIds.size > 0 && (
+                <div className='absolute bottom-20 left-1/2 transform -translate-x-1/2 z-30'>
+                  <MergeConfirmation
+                    selectedCount={state.selectedNodeIds.size}
+                    onMerge={mergeSelectedNodes}
+                    onCancel={() => {
+                      clearMergeSelection();
+                      toggleMergeMode();
+                    }}
+                  />
+                </div>
+              )}
 
               {/* Initial Centered Prompting Box */}
               {!hasNodes && (
@@ -444,12 +461,12 @@ function HomePageContent() {
                 </div>
               )}
 
-              {/* Always render NodeGraph for panning, even without nodes (merged with props from main) */}
+              {/* Always render NodeGraph for panning, even without nodes */}
               <NodeGraphFlow
                 onNodeGenerate={handleNodeGenerate}
                 isPanMode={isPanMode}
-                connectedUsers={connectedUsers} // From main branch
-                currentUser={currentUser} // From main branch
+                connectedUsers={connectedUsers}
+                currentUser={currentUser}
               />
 
               {/* Loading state for initial generation */}

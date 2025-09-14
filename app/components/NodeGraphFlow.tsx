@@ -41,7 +41,20 @@ export default function NodeGraphFlow({
   connectedUsers = [],
   currentUser,
 }: Readonly<NodeGraphFlowProps>) {
-  const { state, selectNode, updateNodePosition, updateNodeContent, removeNode, isLoading, error } = useIdeaGraph();
+  const { 
+    state, 
+    selectNode, 
+    updateNodePosition, 
+    updateNodeContent, 
+    removeNode, 
+    createChildNote, 
+    createChildPrompt, 
+    addPromptNode,
+    toggleNodeSelection,
+    toggleMergeMode,
+    isLoading, 
+    error 
+  } = useIdeaGraph();
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
 
@@ -69,6 +82,7 @@ export default function NodeGraphFlow({
         data: { 
           node,
           onSelect: () => selectNode(node.id),
+          onGenerateIdeas: onNodeGenerate,
         },
       });
     });
@@ -89,6 +103,9 @@ export default function NodeGraphFlow({
           onRemoveNode: removeNode,
           connectedUsers,
           currentUser,
+          isMergeMode: state.isMergeMode,
+          isSelectedForMerge: state.selectedNodeIds?.has(node.id),
+          onToggleSelection: toggleNodeSelection,
         },
       });
     });
@@ -109,6 +126,9 @@ export default function NodeGraphFlow({
           onRemoveNode: removeNode,
           connectedUsers,
           currentUser,
+          isMergeMode: state.isMergeMode,
+          isSelectedForMerge: state.selectedNodeIds?.has(node.id),
+          onToggleSelection: toggleNodeSelection,
         },
       });
     });
@@ -132,7 +152,11 @@ export default function NodeGraphFlow({
         data: { 
           node,
           onSelect: () => selectNode(node.id),
-          onGenerateChildren: () => onNodeGenerate?.(node.id),
+          onGenerateChildren: () => createChildPrompt(node.id),
+          onAddManualChild: () => createChildNote(node.id),
+          isMergeMode: state.isMergeMode,
+          isSelectedForMerge: state.selectedNodeIds?.has(node.id),
+          onToggleSelection: toggleNodeSelection,
         },
       });
     });
@@ -158,7 +182,11 @@ export default function NodeGraphFlow({
         data: { 
           node,
           onSelect: () => selectNode(node.id),
-          onGenerateChildren: () => onNodeGenerate?.(node.id),
+          onGenerateChildren: () => createChildPrompt(node.id),
+          onAddManualChild: () => createChildNote(node.id),
+          isMergeMode: state.isMergeMode,
+          isSelectedForMerge: state.selectedNodeIds?.has(node.id),
+          onToggleSelection: toggleNodeSelection,
         },
       });
     });
@@ -171,6 +199,9 @@ export default function NodeGraphFlow({
         position: node.position || { x: 100, y: 100 },
         data: { 
           node,
+          onSelect: () => selectNode(node.id),
+          onGenerateIdeas: onNodeGenerate,
+          onCreatePromptNode: addPromptNode,
         },
       });
     });
@@ -208,10 +239,14 @@ export default function NodeGraphFlow({
 
   // Handle node selection
   const onNodeClick = useCallback((event: React.MouseEvent, node: Node) => {
-    if (node.data?.onSelect) {
+    // In merge mode, handle toggling selection
+    if (state.isMergeMode && node.data?.onToggleSelection) {
+      event.stopPropagation();
+      node.data.onToggleSelection(node.id);
+    } else if (node.data?.onSelect) {
       node.data.onSelect();
     }
-  }, []);
+  }, [state.isMergeMode]);
 
   // Handle node drag stop to persist position
   const onNodeDragStop = useCallback((event: React.MouseEvent, node: Node) => {
@@ -251,7 +286,9 @@ export default function NodeGraphFlow({
         onEdgesChange={onEdgesChange}
         onNodeClick={onNodeClick}
         onNodeDragStop={onNodeDragStop}
+        onPaneClick={state.isMergeMode ? toggleMergeMode : undefined}
         nodeTypes={nodeTypes}
+        nodesDraggable={!state.isMergeMode}
         connectionMode={ConnectionMode.Loose}
         fitView
         fitViewOptions={{

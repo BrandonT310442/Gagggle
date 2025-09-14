@@ -299,25 +299,54 @@ export default function CustomPromptToolNode({ data, selected }: NodeProps) {
     const selectedProvider = llmProviders.find((p) => p.value === llmProvider);
 
     try {
-      // Generate ideas with prompt node creation at the current tool position
-      await generateIdeas({
-        prompt: prompt.trim(),
-        count: parseInt(ideaCount),
-        modelConfig: {
-          provider: (selectedProvider?.provider || 'groq') as
-            | 'groq'
-            | 'cohere'
-            | 'mock',
-          model: selectedProvider?.model,
-          modelLabel: selectedProvider?.label,
-        },
-        createPromptNode: true, // This will create the prompt node at the tool's position
-        position: data.node.position, // Pass the current tool node's position
-      });
+      // If this prompt tool has a parent, we need to create a prompt node manually
+      const parentNodeId = data.node.parentId;
+      
+      if (parentNodeId) {
+        // Include context in the generation prompt (for the LLM)
+        const contextPrompt = data.node.metadata?.parentContext 
+          ? `Context from previous idea: "${data.node.metadata.parentContext}"\n\nUser prompt: ${prompt.trim()}`
+          : prompt.trim();
+        
+        // Generate ideas with a prompt node as intermediate
+        // Pass the display prompt separately so backend creates a clean prompt node
+        await generateIdeas({
+          prompt: contextPrompt, // Send context-enriched prompt to LLM
+          displayPrompt: prompt.trim(), // This will be shown in the prompt node
+          count: parseInt(ideaCount),
+          modelConfig: {
+            provider: (selectedProvider?.provider || 'groq') as 'groq' | 'cohere' | 'mock',
+            model: selectedProvider?.model,
+            modelLabel: selectedProvider?.label,
+          },
+          createPromptNode: true, // Create a prompt node (will use displayPrompt for content)
+          parentNodeId: parentNodeId, // Connect to parent
+          position: { 
+            x: data.node.position.x,
+            y: data.node.position.y + 200 
+          },
+        });
+      } else {
+        // No parent - standard flow (toolbar usage)
+        await generateIdeas({
+          prompt: prompt.trim(),
+          count: parseInt(ideaCount),
+          modelConfig: {
+            provider: (selectedProvider?.provider || 'groq') as 'groq' | 'cohere' | 'mock',
+            model: selectedProvider?.model,
+            modelLabel: selectedProvider?.label,
+          },
+          createPromptNode: true,
+          position: data.node.position,
+        });
+      }
 
       // Remove this tool node after successful submission
+      // Small delay to ensure the prompt node is fully rendered first
       if (removeNode) {
-        removeNode(data.node.id);
+        setTimeout(() => {
+          removeNode(data.node.id);
+        }, 100);
       }
     } catch (error) {
       console.error('Failed to generate ideas:', error);

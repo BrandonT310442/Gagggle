@@ -15,6 +15,8 @@ interface ToolBarProps {
   onNoteToolClick?: () => void;
   onCommentToolClick?: () => void;
   onPromptToolClick?: () => void;
+  onMergeToolClick?: () => void;
+  isMergeMode?: boolean;
 }
 
 export default function ToolBar({
@@ -22,6 +24,8 @@ export default function ToolBar({
   onNoteToolClick,
   onCommentToolClick,
   onPromptToolClick,
+  onMergeToolClick,
+  isMergeMode = false,
 }: Readonly<ToolBarProps>) {
   const [activeToolIndex, setActiveToolIndex] = useState(0); // 0: cursor, 1: pan, 2: comment, etc.
 
@@ -50,15 +54,30 @@ export default function ToolBar({
       return;
     }
 
+    // Handle merge tool click - toggles merge mode
+    if (toolIndex === 5 && onMergeToolClick) {
+      // Merge tool is index 5
+      onMergeToolClick();
+      // Keep merge tool highlighted when in merge mode
+      setActiveToolIndex(isMergeMode ? 0 : 5);
+      return;
+    }
+
     setActiveToolIndex(toolIndex);
     if (onPanModeChange) {
       onPanModeChange(toolIndex === 1); // Pan tool is index 1
     }
   };
 
-  const getToolStyle = (index: number) => ({
-    backgroundColor: activeToolIndex === index ? '#45556C' : 'transparent',
-  });
+  const getToolStyle = (index: number) => {
+    // Special handling for merge tool
+    if (index === 5 && isMergeMode) {
+      return { backgroundColor: '#45556C' };
+    }
+    return {
+      backgroundColor: activeToolIndex === index ? '#45556C' : 'transparent',
+    };
+  };
 
   return (
     <div className='bg-white box-border flex gap-6 items-center justify-start px-6 py-2 border-gray-200 cursor-pointer'>
@@ -176,7 +195,7 @@ export default function ToolBar({
               <img
                 alt='Merge tool'
                 className={`block max-w-none size-full ${
-                  activeToolIndex === 5 ? 'brightness-0 invert' : ''
+                  (activeToolIndex === 5 || isMergeMode) ? 'brightness-0 invert' : ''
                 }`}
                 src={img6}
               />

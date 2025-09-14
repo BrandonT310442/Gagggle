@@ -12,6 +12,7 @@ interface IdeaNodeProps {
   isSelected?: boolean;
   onSelect?: () => void;
   onGenerateChildren?: () => void;
+  onAddManualChild?: () => void;
   onUpdateContent?: (nodeId: string, content: string) => void;
 }
 
@@ -67,21 +68,47 @@ export default function IdeaNode({
   isSelected = false,
   onSelect,
   onGenerateChildren,
+  onAddManualChild,
   onUpdateContent,
 }: Readonly<IdeaNodeProps>) {
   const [isHovered, setIsHovered] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editContent, setEditContent] = useState(node.content);
+  const [showLeafPopup, setShowLeafPopup] = useState(false);
   const nodeRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const popupRef = useRef<HTMLDivElement>(null);
   const updateXarrow = useXarrow();
 
   const isManualNote = node.metadata?.isManualNote;
+  const isLeafNode = !node.childIds || node.childIds.length === 0;
 
   // Update edit content when node content changes
   useEffect(() => {
     setEditContent(node.content);
   }, [node.content]);
+
+  // Handle click outside to close popup
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        showLeafPopup &&
+        nodeRef.current &&
+        !nodeRef.current.contains(event.target as Node) &&
+        popupRef.current &&
+        !popupRef.current.contains(event.target as Node)
+      ) {
+        setShowLeafPopup(false);
+      }
+    };
+
+    if (showLeafPopup) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside);
+      };
+    }
+  }, [showLeafPopup]);
 
   // Auto-focus and start editing for new manual notes
   useEffect(() => {
@@ -135,6 +162,21 @@ export default function IdeaNode({
     }
   };
 
+  const handlePlusClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setShowLeafPopup(!showLeafPopup);
+  };
+
+  const handleAddPrompt = () => {
+    setShowLeafPopup(false);
+    onGenerateChildren?.();
+  };
+
+  const handleAddIdea = () => {
+    setShowLeafPopup(false);
+    onAddManualChild?.();
+  };
+
   const getModelIcon = (modelName?: string, isManualNote?: boolean) => {
     if (isManualNote) return <ManualIcon />;
     if (!modelName) return <MetaIcon />;
@@ -180,7 +222,7 @@ export default function IdeaNode({
         id={node.id}
         ref={nodeRef}
         className={`
-          bg-white box-border flex flex-col gap-6 items-start justify-start p-6 relative
+          relative bg-white box-border flex flex-col gap-6 items-start justify-start p-6
           cursor-pointer transition-all duration-200
           ${isSelected ? 'ring-2 ring-blue-500 shadow-lg' : ''}
           ${isHovered ? 'shadow-xl' : 'shadow-md'}
@@ -202,6 +244,7 @@ export default function IdeaNode({
           width: 'fit-content',
           minWidth: '28rem',
           maxWidth: '32rem',
+          overflow: 'visible',
         }}
       >
         <div className='flex flex-col gap-2 items-start justify-start relative shrink-0 w-full'>
@@ -286,7 +329,53 @@ export default function IdeaNode({
               <div>{node.content}</div>
             )}
           </div>
+          
+          {/* Plus button as regular element for testing */}
+          <div className='w-full flex justify-end mt-4'>
+            <button
+              onClick={handlePlusClick}
+              className='w-12 h-12 bg-black text-white rounded-full flex items-center justify-center hover:bg-gray-700 transition-all shadow-xl border-2 border-white'
+              aria-label='Add child node'
+            >
+              <span className='text-2xl font-bold'>+</span>
+            </button>
+          </div>
         </div>
+
+        {/* Popup Menu */}
+        {showLeafPopup && isLeafNode && !isManualNote && (
+          <div
+            ref={popupRef}
+            className='absolute bottom-20 right-4 flex flex-col gap-3 p-4 bg-white rounded-lg shadow-2xl border border-gray-200'
+            style={{
+              minWidth: '240px',
+              zIndex: 9999,
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Arrow pointing down to the plus button */}
+            <div
+              className='absolute -bottom-2 right-6 w-4 h-4 bg-white border-r border-b border-gray-200 rotate-45'
+              style={{ zIndex: 9998 }}
+            />
+            
+            <button
+              onClick={handleAddPrompt}
+              className='flex items-center justify-center gap-2 px-4 py-3 bg-white hover:bg-gray-50 border border-gray-300 rounded-lg transition-colors text-gray-700 font-medium'
+            >
+              <span className='text-lg'>+</span>
+              <span>Add a Prompt</span>
+            </button>
+            
+            <button
+              onClick={handleAddIdea}
+              className='flex items-center justify-center gap-2 px-4 py-3 bg-white hover:bg-gray-50 border border-gray-300 rounded-lg transition-colors text-gray-700 font-medium'
+            >
+              <span className='text-lg'>💡</span>
+              <span>Add Your Idea</span>
+            </button>
+          </div>
+        )}
       </div>
     </Draggable>
   );

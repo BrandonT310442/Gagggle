@@ -29,6 +29,7 @@ export interface IdeaNode {
 
 export interface GenerateIdeasRequest {
   prompt: string;
+  displayPrompt?: string; // Optional: what to show in the prompt node (if different from prompt)
   count: number;
   parentNode?: {
     id: string;
@@ -54,6 +55,8 @@ export interface IdeaGraphState {
   nodes: Map<string, IdeaNode>;
   rootNodes: string[];
   selectedNodeId?: string;
+  isMergeMode?: boolean;
+  selectedNodeIds?: Set<string>;
 }
 
 export interface NodePosition {

@@ -28,6 +28,13 @@ function renderTemplate(template: string, data: Record<string, any>): string {
     
     return array.map((item, index) => {
       let itemContent = content;
+      
+      // Handle property access like {{this.content}}
+      itemContent = itemContent.replace(/{{this\.(\w+)}}/g, (match, prop) => {
+        return item[prop] || '';
+      });
+      
+      // Handle simple {{this}}
       itemContent = itemContent.replace(/{{this}}/g, item);
       itemContent = itemContent.replace(/{{@index}}/g, (index + 1).toString());
       return itemContent;
@@ -64,6 +71,12 @@ function parseMergeOutput(text: string): string {
 
 export async function mergeIdeas(request: MergeIdeasRequest): Promise<MergeIdeasResponse> {
   const startTime = Date.now();
+  
+  console.log('[Merge] Received merge request with', request.nodes.length, 'nodes');
+  console.log('[Merge] Node contents:', request.nodes.map(n => n.content));
+  console.log('[Merge] User instruction:', request.mergePrompt);
+  console.log('[Merge] Model config:', request.modelConfig);
+  
   const provider = getLLMProvider(request.modelConfig);
   
   try {
@@ -83,6 +96,8 @@ export async function mergeIdeas(request: MergeIdeasRequest): Promise<MergeIdeas
     // Render the prompt
     const fullPrompt = renderTemplate(template, templateData);
     
+    console.log('[Merge] Rendered prompt:', fullPrompt.substring(0, 500) + '...');
+    
     // Call LLM provider - pass just the prompt like generate does
     const response = await provider.mergeIdeas({
       prompt: fullPrompt,
@@ -90,7 +105,9 @@ export async function mergeIdeas(request: MergeIdeasRequest): Promise<MergeIdeas
     });
     
     // Parse the response
+    console.log('[Merge] Raw LLM response:', response);
     const mergedContent = parseMergeOutput(response);
+    console.log('[Merge] Parsed merged content:', mergedContent);
     
     // Create the merged IdeaNode
     const mergedIdea: IdeaNode = {
