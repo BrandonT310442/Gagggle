@@ -23,21 +23,25 @@ import { categorizeNodes, exportGraph } from './services/api';
 function HomePageContent() {
   const [fileName, setFileName] = useState('Untitled Document');
   const [isPanMode, setIsPanMode] = useState(false);
+  
+  // Merge both destructuring patterns - include all methods from both branches
   const {
     generateIdeas,
     createEmptyNote,
+    createComment, // From main branch
     createPromptToolNode,
     state,
     isLoading,
     setSocket,
     setUserId,
   } = useIdeaGraph();
+  
   const [currentSocket, setCurrentSocket] = useState<Socket | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string>('');
   const socketRef = useRef<Socket | null>(null);
   const userIdRef = useRef<string>('');
 
-  // Opening animation state
+  // Opening animation state (from rachelkd-loading-animation branch)
   const [showOpeningAnimation, setShowOpeningAnimation] = useState(true);
   const [fadeOut, setFadeOut] = useState(false);
 
@@ -63,7 +67,7 @@ function HomePageContent() {
     }
   }, [currentUserId, setUserId]);
 
-  // Handle opening animation and cache clearing
+  // Handle opening animation and cache clearing (from rachelkd-loading-animation branch)
   useEffect(() => {
     // Clear cache on page load
     if ('caches' in window) {
@@ -116,6 +120,8 @@ function HomePageContent() {
             provider: data.provider as 'groq' | 'cohere' | 'mock',
             model: data.model,
           },
+          // Create a prompt node for the main prompt
+          createPromptNode: true,
           // Center the initial prompt
           position: isFirstPrompt ? { x: 400, y: 100 } : undefined,
         });
@@ -214,7 +220,7 @@ function HomePageContent() {
 
   const hasNodes = state.nodes.size > 0;
 
-  // Calculate animation tiling layout
+  // Calculate animation tiling layout (from rachelkd-loading-animation branch)
   const animationLayout = useMemo(() => {
     const animationAspectRatio = 1512 / 982; // Original animation dimensions
     const screenWidth =
@@ -282,7 +288,7 @@ function HomePageContent() {
 
         return (
           <>
-            {/* Opening Animation Overlay */}
+            {/* Opening Animation Overlay (from rachelkd-loading-animation branch) */}
             {showOpeningAnimation && (
               <div
                 className={`fixed inset-0 z-50 bg-white transition-opacity duration-800 overflow-hidden ${
@@ -404,11 +410,12 @@ function HomePageContent() {
                 />
               </div>
 
-              {/* ToolBar - Bottom center */}
+              {/* ToolBar - Bottom center (merged to include both createComment and other methods) */}
               <div className='absolute bottom-4 left-1/2 transform -translate-x-1/2 z-20'>
                 <ToolBar
                   onPanModeChange={setIsPanMode}
                   onNoteToolClick={createEmptyNote}
+                  onCommentToolClick={createComment} // From main branch
                   onPromptToolClick={createPromptToolNode}
                 />
               </div>
@@ -437,10 +444,12 @@ function HomePageContent() {
                 </div>
               )}
 
-              {/* Always render NodeGraph for panning, even without nodes */}
+              {/* Always render NodeGraph for panning, even without nodes (merged with props from main) */}
               <NodeGraphFlow
                 onNodeGenerate={handleNodeGenerate}
                 isPanMode={isPanMode}
+                connectedUsers={connectedUsers} // From main branch
+                currentUser={currentUser} // From main branch
               />
 
               {/* Loading state for initial generation */}

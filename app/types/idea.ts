@@ -13,6 +13,9 @@ export interface IdeaNode {
     modelProvider?: string;
     modelName?: string;
     modelLabel?: string;
+    isManualNote?: boolean;
+    isComment?: boolean;
+    isDraft?: boolean;
     [key: string]: any;
   };
   createdBy: string;

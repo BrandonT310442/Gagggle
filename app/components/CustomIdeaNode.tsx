@@ -55,6 +55,64 @@ export default function CustomIdeaNode({ data, selected }: NodeProps) {
   const isEmptyManualNote = isManualNote && !node.content.trim();
   const isReadOnlyManualNote = isManualNote && node.content.trim();
 
+  const isComment = node.metadata?.isComment;
+  const isEmptyComment = isComment && !node.content.trim();
+  const isReadOnlyComment = isComment && node.content.trim();
+
+  // Get user color for comments from other collaborators
+  const getUserColor = (userId: string) => {
+    if (data.currentUser?.userId === userId) {
+      return data.currentUser.color;
+    }
+    const user = data.connectedUsers?.find((u: { userId: string; color: string }) => u.userId === userId);
+    return user?.color || '#6B7280'; // Default gray if user not found
+  };
+
+  const userColor = isComment ? getUserColor(node.createdBy) : undefined;
+
+  // Get username for comments
+  const getUsername = (userId: string) => {
+    if (data.currentUser?.userId === userId) {
+      return 'You';
+    }
+    // For now, we'll use a shortened version of the userId since we don't have usernames
+    // You could extend this to use actual usernames if they're available
+    return `User ${userId.substring(0, 8)}`;
+  };
+
+  // Format timestamp for comments
+  const formatTimestamp = (date: Date | string) => {
+    const now = new Date();
+    const dateObj = date instanceof Date ? date : new Date(date);
+    const diff = now.getTime() - dateObj.getTime();
+    const minutes = Math.floor(diff / 60000);
+    const hours = Math.floor(diff / 3600000);
+    const days = Math.floor(diff / 86400000);
+
+    if (minutes < 1) return 'Just now';
+    if (minutes < 60) return `${minutes}m ago`;
+    if (hours < 24) return `${hours}h ago`;
+    if (days < 7) return `${days}d ago`;
+    return dateObj.toLocaleDateString();
+  };
+
+  // User avatar component for comments
+  const UserAvatar = ({ color, size = 16 }: { color: string; size?: number }) => {
+    return (
+      <div 
+        className='rounded-full flex items-center justify-center text-white text-xs font-bold'
+        style={{ 
+          backgroundColor: color, 
+          width: size, 
+          height: size,
+          fontSize: size * 0.5
+        }}
+      >
+        {node.createdBy.substring(0, 1).toUpperCase()}
+      </div>
+    );
+  };
+
   // Debug logging
   useEffect(() => {
     if (isManualNote) {
@@ -76,14 +134,14 @@ export default function CustomIdeaNode({ data, selected }: NodeProps) {
     setEditContent(node.content);
   }, [node.content]);
 
-  // Auto-focus and start editing for new manual notes (only empty ones)
+  // Auto-focus and start editing for new manual notes and comments (only empty ones)
   useEffect(() => {
-    console.log('Auto-edit useEffect', { isManualNote, hasContent: !!node.content, selected, isEmptyManualNote });
-    if (isEmptyManualNote && selected) {
-      console.log('Starting auto-edit for new empty manual note');
+    console.log('Auto-edit useEffect', { isManualNote, isComment, hasContent: !!node.content, selected, isEmptyManualNote, isEmptyComment });
+    if ((isEmptyManualNote || isEmptyComment) && selected) {
+      console.log('Starting auto-edit for new empty note/comment');
       setIsEditing(true);
     }
-  }, [isEmptyManualNote, selected]);
+  }, [isEmptyManualNote, isEmptyComment, selected]);
 
   // Auto-focus textarea when editing starts
   useEffect(() => {
@@ -99,9 +157,9 @@ export default function CustomIdeaNode({ data, selected }: NodeProps) {
   }, [isEditing]);
 
   const handleStartEdit = (e: React.MouseEvent) => {
-    console.log('handleStartEdit called', { isManualNote, nodeId: node.id, isReadOnlyManualNote });
-    // Only allow editing if it's an empty manual note (not read-only)
-    if (isEmptyManualNote) {
+    console.log('handleStartEdit called', { isManualNote, isComment, nodeId: node.id, isReadOnlyManualNote, isReadOnlyComment });
+    // Only allow editing if it's an empty manual note or comment (not read-only)
+    if (isEmptyManualNote || isEmptyComment) {
       e.stopPropagation();
       e.preventDefault();
       setIsEditing(true);
@@ -110,8 +168,8 @@ export default function CustomIdeaNode({ data, selected }: NodeProps) {
   };
 
   const handleKeyDownStartEdit = (e: React.KeyboardEvent) => {
-    // Only allow keyboard editing if it's an empty manual note (not read-only)
-    if (isEmptyManualNote && (e.key === 'Enter' || e.key === ' ')) {
+    // Only allow keyboard editing if it's an empty manual note or comment (not read-only)
+    if ((isEmptyManualNote || isEmptyComment) && (e.key === 'Enter' || e.key === ' ')) {
       e.stopPropagation();
       setIsEditing(true);
       setEditContent(node.content);
@@ -130,12 +188,14 @@ export default function CustomIdeaNode({ data, selected }: NodeProps) {
     console.log('handleCancelEdit called - resetting edit mode', { 
       beforeEdit: isEditing, 
       nodeContent: node.content,
-      editContent: editContent.trim()
+      editContent: editContent.trim(),
+      isEmptyManualNote,
+      isEmptyComment
     });
     
-    // If the manual note is empty (no original content), delete it entirely
-    if (isEmptyManualNote) {
-      console.log('Deleting empty manual note');
+    // If the manual note or comment is empty (no original content), delete it entirely
+    if (isEmptyManualNote || isEmptyComment) {
+      console.log('Deleting empty note/comment');
       if (data.onRemoveNode) {
         data.onRemoveNode(node.id);
       }
@@ -174,7 +234,16 @@ export default function CustomIdeaNode({ data, selected }: NodeProps) {
     );
   };
 
-  const getModelIcon = (modelName?: string, isManualNote?: boolean) => {
+  const CommentIcon = () => {
+    return (
+      <div className='relative w-4 h-4 flex items-center justify-center'>
+        <div className='text-gray-600 text-xs font-bold'>💬</div>
+      </div>
+    );
+  };
+
+  const getModelIcon = (modelName?: string, isManualNote?: boolean, isComment?: boolean) => {
+    if (isComment) return <CommentIcon />;
     if (isManualNote) return <ManualIcon />;
     if (!modelName) return <MetaIcon />;
 
@@ -191,7 +260,11 @@ export default function CustomIdeaNode({ data, selected }: NodeProps) {
     return <MetaIcon />;
   };
 
-  const formatModelName = (modelName?: string, modelLabel?: string, isManualNote?: boolean) => {
+  const formatModelName = (modelName?: string, modelLabel?: string, isManualNote?: boolean, isComment?: boolean) => {
+    if (isComment) {
+      // For comments, we'll handle the display differently in the JSX
+      return null;
+    }
     if (isManualNote) return 'Manual Mode';
     if (modelLabel) return modelLabel;
     if (!modelName) return 'Unknown Model';
@@ -214,31 +287,48 @@ export default function CustomIdeaNode({ data, selected }: NodeProps) {
       <Handle type='target' position={Position.Top} className='opacity-0' />
       <div
         className={`
-          bg-white box-border flex flex-col gap-6 items-start justify-start p-6 relative
+          ${isComment ? 'bg-gray-50' : 'bg-white'} box-border flex flex-col gap-6 items-start justify-start p-6 relative
           cursor-pointer transition-all duration-200
           ${selected ? 'ring-2 ring-blue-500 shadow-lg' : ''}
           ${isHovered ? 'shadow-xl' : 'shadow-md'}
+          ${isComment ? 'border-l-4' : ''}
         `}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
         style={{
-          width: '28rem',
-          maxWidth: '32rem',
+          width: isComment ? '26rem' : '28rem',
+          maxWidth: isComment ? '30rem' : '32rem',
+          borderLeftColor: isComment ? userColor : undefined,
         }}
       >
         <div className='flex flex-col gap-2 items-start justify-start relative shrink-0 w-full'>
           {/* Model info section */}
           <div className='box-border flex gap-2 items-center justify-start px-0 py-2 relative shrink-0'>
-            <div className='flex gap-1 items-center justify-start relative shrink-0'>
-              {getModelIcon(node.metadata?.modelName, node.metadata?.isManualNote)}
-              <div className="font-['Inter'] text-xs font-normal leading-4 text-black whitespace-nowrap">
-                {formatModelName(
-                  node.metadata?.modelName,
-                  node.metadata?.modelLabel,
-                  node.metadata?.isManualNote
-                )}
+            {isComment ? (
+              /* Comment header with user info */
+              <div className='flex gap-2 items-center justify-start relative shrink-0'>
+                <UserAvatar color={userColor || '#6B7280'} size={16} />
+                <div className="font-['Inter'] text-xs font-normal leading-4 text-gray-700">
+                  {getUsername(node.createdBy)}
+                </div>
+                <div className="font-['Inter'] text-xs font-normal leading-4 text-gray-500">
+                  {formatTimestamp(node.createdAt)}
+                </div>
               </div>
-            </div>
+            ) : (
+              /* Regular model info for ideas and manual notes */
+              <div className='flex gap-1 items-center justify-start relative shrink-0'>
+                {getModelIcon(node.metadata?.modelName, node.metadata?.isManualNote, node.metadata?.isComment)}
+                <div className="font-['Inter'] text-xs font-normal leading-4 text-black whitespace-nowrap">
+                  {formatModelName(
+                    node.metadata?.modelName,
+                    node.metadata?.modelLabel,
+                    node.metadata?.isManualNote,
+                    node.metadata?.isComment
+                  )}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Content section */}
@@ -277,7 +367,7 @@ export default function CustomIdeaNode({ data, selected }: NodeProps) {
                     fontFamily: 'Syne, sans-serif',
                     minHeight: '2.5rem',
                   }}
-                  placeholder='Enter your idea...'
+                  placeholder={isComment ? 'Enter your comment...' : 'Enter your idea...'}
                 />
                 <div className='flex justify-between items-center mt-2 text-xs text-gray-500'>
                   <span>Enter to save, Esc to cancel</span>
@@ -301,16 +391,16 @@ export default function CustomIdeaNode({ data, selected }: NodeProps) {
                   </div>
                 </div>
               </div>
-            ) : isEmptyManualNote ? (
+            ) : isEmptyManualNote || isEmptyComment ? (
               <button
                 onClick={handleStartEdit}
                 onKeyDown={handleKeyDownStartEdit}
                 className='cursor-text hover:bg-gray-50 p-2 -m-2 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 w-full text-left'
                 type='button'
               >
-                {node.content || 'Click to add your idea...'}
+                {node.content || (isComment ? 'Click to add your comment...' : 'Click to add your idea...')}
               </button>
-            ) : isReadOnlyManualNote ? (
+            ) : isReadOnlyManualNote || isReadOnlyComment ? (
               <div className='w-full p-2 -m-2 text-left'>
                 {node.content}
               </div>
