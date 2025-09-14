@@ -154,7 +154,11 @@ export default function IdeaNode({
     return <MetaIcon />;
   };
 
-  const formatModelName = (modelName?: string, modelLabel?: string, isManualNote?: boolean) => {
+  const formatModelName = (
+    modelName?: string,
+    modelLabel?: string,
+    isManualNote?: boolean
+  ) => {
     if (isManualNote) return 'Manual Input';
     if (modelLabel) return modelLabel;
     if (!modelName) return 'Unknown Model';
@@ -171,11 +175,7 @@ export default function IdeaNode({
   };
 
   return (
-    <Draggable 
-      nodeRef={nodeRef}
-      onDrag={updateXarrow}
-      onStop={updateXarrow}
-    >
+    <Draggable nodeRef={nodeRef} onDrag={updateXarrow} onStop={updateXarrow}>
       <div
         id={node.id}
         ref={nodeRef}
@@ -194,8 +194,10 @@ export default function IdeaNode({
           }
         }}
         tabIndex={0}
-        role="button"
-        aria-label={`Idea node: ${node.content.substring(0, 50)}${node.content.length > 50 ? '...' : ''}`}
+        role='button'
+        aria-label={`Idea node: ${node.content.substring(0, 50)}${
+          node.content.length > 50 ? '...' : ''
+        }`}
         style={{
           width: 'fit-content',
           minWidth: '28rem',
@@ -249,14 +251,14 @@ export default function IdeaNode({
                     fontFamily: 'Syne, sans-serif',
                     minHeight: '2.5rem',
                   }}
-                  placeholder="Enter your idea..."
+                  placeholder='Enter your idea...'
                 />
                 <div className='flex justify-between items-center mt-2 text-xs text-gray-500'>
                   <span>Enter to save, Esc to cancel</span>
                   <div className='flex gap-2'>
                     <button
                       onClick={handleSaveEdit}
-                      className='px-2 py-1 bg-blue-500 text-white rounded text-xs hover:bg-blue-600'
+                      className='px-2 py-1 bg-black text-white rounded text-xs hover:bg-black'
                     >
                       Save
                     </button>
@@ -274,16 +276,14 @@ export default function IdeaNode({
               <button
                 onClick={handleStartEdit}
                 onKeyDown={handleKeyDownStartEdit}
-                className="cursor-text hover:bg-gray-50 p-2 -m-2 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 w-full text-left"
-                type="button"
+                className='cursor-text hover:bg-gray-50 p-2 -m-2 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 w-full text-left'
+                type='button'
               >
                 {node.content || 'Click to add your idea...'}
               </button>
             )}
             {!node.metadata?.isLoading && !isEditing && !isManualNote && (
-              <div>
-                {node.content}
-              </div>
+              <div>{node.content}</div>
             )}
           </div>
         </div>

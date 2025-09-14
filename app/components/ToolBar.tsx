@@ -15,17 +15,21 @@ interface ToolBarProps {
   onNoteToolClick?: () => void;
 }
 
-export default function ToolBar({ onPanModeChange, onNoteToolClick }: Readonly<ToolBarProps>) {
+export default function ToolBar({
+  onPanModeChange,
+  onNoteToolClick,
+}: Readonly<ToolBarProps>) {
   const [activeToolIndex, setActiveToolIndex] = useState(0); // 0: cursor, 1: pan, 2: comment, etc.
 
   const handleToolClick = (toolIndex: number) => {
     // Handle note tool click - single click action, don't keep it active
-    if (toolIndex === 3 && onNoteToolClick) { // Note tool is index 3
+    if (toolIndex === 3 && onNoteToolClick) {
+      // Note tool is index 3
       onNoteToolClick();
       // Don't change activeToolIndex for note tool - keep cursor as active
       return;
     }
-    
+
     setActiveToolIndex(toolIndex);
     if (onPanModeChange) {
       onPanModeChange(toolIndex === 1); // Pan tool is index 1
@@ -33,7 +37,7 @@ export default function ToolBar({ onPanModeChange, onNoteToolClick }: Readonly<T
   };
 
   const getToolStyle = (index: number) => ({
-    backgroundColor: activeToolIndex === index ? '#000000' : 'transparent',
+    backgroundColor: activeToolIndex === index ? '#45556C' : 'transparent',
   });
 
   return (
