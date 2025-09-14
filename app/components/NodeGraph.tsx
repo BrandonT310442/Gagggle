@@ -97,7 +97,10 @@ export default function NodeGraph({
     // Always zoom with scroll, no modifier needed
     const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
     setZoom(prevZoom => Math.min(Math.max(prevZoom * zoomFactor, 0.1), 3));
-  }, []);
+    
+    // Update arrows after zoom
+    setTimeout(() => updateXarrow(), 0);
+  }, [updateXarrow]);
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     const shouldPan = isPanMode || e.ctrlKey || e.metaKey;
@@ -130,8 +133,11 @@ export default function NodeGraph({
         x: panStart.x + deltaX,
         y: panStart.y + deltaY
       });
+      
+      // Update arrows after pan
+      updateXarrow();
     }
-  }, [isDragging, dragStart, panStart]);
+  }, [isDragging, dragStart, panStart, updateXarrow]);
 
   // Global mouse up handler
   const handleGlobalMouseUp = useCallback(() => {
@@ -257,12 +263,15 @@ export default function NodeGraph({
                     key={`arrow-${parentIndex}-${childIndex}-${parentNode.id}-${childId}`}
                     start={parentNode.id}
                     end={childId}
-                    color="#64748b"
-                    strokeWidth={2}
+                    color="#94a3b8"
+                    strokeWidth={1.5}
                     path="smooth"
-                    curveness={0.6}
+                    curveness={0.4}
+                    startAnchor="bottom"
+                    endAnchor="top"
                     headShape="arrow1"
-                    headSize={4}
+                    headSize={3}
+                    dashness={false}
                   />
                 ))
               )}

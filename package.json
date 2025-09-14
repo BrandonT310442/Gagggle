@@ -37,6 +37,7 @@
     "react-dom": "19.1.0",
     "react-draggable": "^4.5.0",
     "react-xarrows": "^2.0.2",
+    "reactflow": "^11.11.4",
     "socket.io": "^4.8.1",
     "socket.io-client": "^4.8.1",
     "zod": "^4.1.8"
