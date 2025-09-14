@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import ReactFlow, {
   Node,
   Edge,
@@ -12,6 +12,9 @@ import ReactFlow, {
   NodeTypes,
   MarkerType,
   ConnectionMode,
+  Viewport,
+  useReactFlow,
+  ReactFlowProvider,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 
@@ -25,6 +28,7 @@ import loadingAnimation from '../../public/gagggleLoading.json';
 interface NodeGraphFlowProps {
   onNodeGenerate?: (nodeId: string) => void;
   isPanMode?: boolean;
+  onViewportChange?: (viewport: Viewport) => void;
 }
 
 const nodeTypes: NodeTypes = {
@@ -33,35 +37,58 @@ const nodeTypes: NodeTypes = {
   promptToolNode: CustomPromptToolNode,
 };
 
-export default function NodeGraphFlow({
+// Inner component that uses useReactFlow
+function NodeGraphFlowInner({
   onNodeGenerate,
   isPanMode = false,
+  onViewportChange,
 }: Readonly<NodeGraphFlowProps>) {
-  const { state, selectNode, updateNodePosition, updateNodeContent, removeNode, isLoading, error } = useIdeaGraph();
+  const {
+    state,
+    selectNode,
+    updateNodePosition,
+    updateNodeContent,
+    removeNode,
+    isLoading,
+    error,
+  } = useIdeaGraph();
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+  const reactFlowInstance = useReactFlow();
+  const prevViewportRef = useRef<Viewport | null>(null);
 
   // Convert IdeaGraph nodes to React Flow format
   useEffect(() => {
     const flowNodes: Node[] = [];
     const flowEdges: Edge[] = [];
-    
+
     // Calculate positions for nodes
-    const promptNodes = Array.from(state.nodes.values()).filter(n => n.metadata?.isPrompt);
-    const promptToolNodes = Array.from(state.nodes.values()).filter(n => n.metadata?.isPromptTool);
-    const manualNodes = Array.from(state.nodes.values()).filter(n => n.metadata?.isManualNote);
-    const ideaNodes = Array.from(state.nodes.values()).filter(n => !n.metadata?.isPrompt && !n.metadata?.isPromptTool && !n.metadata?.isManualNote);
-    
+    const promptNodes = Array.from(state.nodes.values()).filter(
+      (n) => n.metadata?.isPrompt
+    );
+    const promptToolNodes = Array.from(state.nodes.values()).filter(
+      (n) => n.metadata?.isPromptTool
+    );
+    const manualNodes = Array.from(state.nodes.values()).filter(
+      (n) => n.metadata?.isManualNote
+    );
+    const ideaNodes = Array.from(state.nodes.values()).filter(
+      (n) =>
+        !n.metadata?.isPrompt &&
+        !n.metadata?.isPromptTool &&
+        !n.metadata?.isManualNote
+    );
+
     // Position prompt nodes - use stored position or default
     promptNodes.forEach((node, index) => {
       flowNodes.push({
         id: node.id,
         type: 'promptNode',
-        position: node.position || { 
+        position: node.position || {
           x: 400, // Center horizontally as fallback
-          y: 50 
+          y: 50,
         },
-        data: { 
+        data: {
           node,
           onSelect: () => selectNode(node.id),
         },
@@ -73,11 +100,11 @@ export default function NodeGraphFlow({
       flowNodes.push({
         id: node.id,
         type: 'ideaNode',
-        position: node.position || { 
+        position: node.position || {
           x: 200 + (index % 3) * 400, // Grid layout fallback
-          y: 200 + Math.floor(index / 3) * 250 
+          y: 200 + Math.floor(index / 3) * 250,
         },
-        data: { 
+        data: {
           node,
           onSelect: () => selectNode(node.id),
           onUpdateContent: updateNodeContent,
@@ -87,22 +114,26 @@ export default function NodeGraphFlow({
     });
 
     // Position idea nodes below in rows based on parent-child relationships
-    const rootIdeas = ideaNodes.filter(n => !n.parentId || promptNodes.some(p => p.id === n.parentId));
-    const childIdeas = ideaNodes.filter(n => n.parentId && !promptNodes.some(p => p.id === n.parentId));
-    
+    const rootIdeas = ideaNodes.filter(
+      (n) => !n.parentId || promptNodes.some((p) => p.id === n.parentId)
+    );
+    const childIdeas = ideaNodes.filter(
+      (n) => n.parentId && !promptNodes.some((p) => p.id === n.parentId)
+    );
+
     // First row - root ideas (use stored position or calculate)
     rootIdeas.forEach((node, index) => {
       const spacing = 500;
-      const startX = -(rootIdeas.length - 1) * spacing / 2;
-      
+      const startX = (-(rootIdeas.length - 1) * spacing) / 2;
+
       flowNodes.push({
         id: node.id,
         type: 'ideaNode',
-        position: node.position || { 
-          x: startX + (index * spacing) + 400,
-          y: 250 
+        position: node.position || {
+          x: startX + index * spacing + 400,
+          y: 250,
         },
-        data: { 
+        data: {
           node,
           onSelect: () => selectNode(node.id),
           onGenerateChildren: () => onNodeGenerate?.(node.id),
@@ -112,23 +143,27 @@ export default function NodeGraphFlow({
 
     // Second row - child ideas (use stored position or calculate)
     childIdeas.forEach((node, index) => {
-      const parentNode = flowNodes.find(n => n.id === node.parentId);
+      const parentNode = flowNodes.find((n) => n.id === node.parentId);
       const parentX = parentNode?.position.x || 400;
-      
+
       // Position children relative to their parent
-      const siblingCount = childIdeas.filter(n => n.parentId === node.parentId).length;
-      const siblingIndex = childIdeas.filter(n => n.parentId === node.parentId).indexOf(node);
+      const siblingCount = childIdeas.filter(
+        (n) => n.parentId === node.parentId
+      ).length;
+      const siblingIndex = childIdeas
+        .filter((n) => n.parentId === node.parentId)
+        .indexOf(node);
       const spacing = 500; // Match spacing used in IdeaGraphContext
-      const startX = parentX - ((siblingCount - 1) * spacing / 2);
-      
+      const startX = parentX - ((siblingCount - 1) * spacing) / 2;
+
       flowNodes.push({
         id: node.id,
         type: 'ideaNode',
-        position: node.position || { 
-          x: startX + (siblingIndex * spacing),
-          y: 450 
+        position: node.position || {
+          x: startX + siblingIndex * spacing,
+          y: 450,
         },
-        data: { 
+        data: {
           node,
           onSelect: () => selectNode(node.id),
           onGenerateChildren: () => onNodeGenerate?.(node.id),
@@ -137,23 +172,23 @@ export default function NodeGraphFlow({
     });
 
     // Add prompt tool nodes (draggable nodes)
-    promptToolNodes.forEach(node => {
+    promptToolNodes.forEach((node) => {
       flowNodes.push({
         id: node.id,
         type: 'promptToolNode',
         position: node.position || { x: 100, y: 100 },
-        data: { 
+        data: {
           node,
         },
       });
     });
 
     // Create edges for parent-child relationships
-    Array.from(state.nodes.values()).forEach(parentNode => {
+    Array.from(state.nodes.values()).forEach((parentNode) => {
       if (parentNode.childIds && parentNode.childIds.length > 0) {
         // Deduplicate child IDs to prevent duplicate edge keys
         const uniqueChildIds = Array.from(new Set(parentNode.childIds));
-        uniqueChildIds.forEach(childId => {
+        uniqueChildIds.forEach((childId) => {
           flowEdges.push({
             id: `edge-${parentNode.id}-${childId}`,
             source: parentNode.id,
@@ -177,7 +212,15 @@ export default function NodeGraphFlow({
 
     setNodes(flowNodes);
     setEdges(flowEdges);
-  }, [state.nodes, selectNode, onNodeGenerate, updateNodeContent, removeNode, setNodes, setEdges]);
+  }, [
+    state.nodes,
+    selectNode,
+    onNodeGenerate,
+    updateNodeContent,
+    removeNode,
+    setNodes,
+    setEdges,
+  ]);
 
   // Handle node selection
   const onNodeClick = useCallback((event: React.MouseEvent, node: Node) => {
@@ -187,10 +230,36 @@ export default function NodeGraphFlow({
   }, []);
 
   // Handle node drag stop to persist position
-  const onNodeDragStop = useCallback((event: React.MouseEvent, node: Node) => {
-    // Update the position in the IdeaGraph state
-    updateNodePosition(node.id, node.position);
-  }, [updateNodePosition]);
+  const onNodeDragStop = useCallback(
+    (event: React.MouseEvent, node: Node) => {
+      // Update the position in the IdeaGraph state
+      updateNodePosition(node.id, node.position);
+    },
+    [updateNodePosition]
+  );
+
+  // Track viewport changes using useEffect and useReactFlow
+  useEffect(() => {
+    const checkViewportChange = () => {
+      const currentViewport = reactFlowInstance.getViewport();
+      const prev = prevViewportRef.current;
+
+      if (
+        !prev ||
+        prev.x !== currentViewport.x ||
+        prev.y !== currentViewport.y ||
+        prev.zoom !== currentViewport.zoom
+      ) {
+        prevViewportRef.current = currentViewport;
+        onViewportChange?.(currentViewport);
+      }
+    };
+
+    // Set up interval to check for viewport changes
+    const interval = setInterval(checkViewportChange, 16); // ~60fps
+
+    return () => clearInterval(interval);
+  }, [reactFlowInstance, onViewportChange]);
 
   if (error) {
     return (
@@ -216,7 +285,7 @@ export default function NodeGraphFlow({
   }
 
   return (
-    <div className="absolute inset-0">
+    <div className='absolute inset-0'>
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -245,18 +314,23 @@ export default function NodeGraphFlow({
         elementsSelectable={true}
         selectNodesOnDrag={false}
       >
-        <Background 
-          variant={BackgroundVariant.Dots} 
-          gap={20} 
-          size={1} 
-          color="#f1f5f9" 
+        <Background
+          variant={BackgroundVariant.Dots}
+          gap={20}
+          size={1}
+          color='#f1f5f9'
         />
-        <Controls 
-          showZoom={true}
-          showFitView={true}
-          showInteractive={false}
-        />
+        <Controls showZoom={true} showFitView={true} showInteractive={false} />
       </ReactFlow>
     </div>
+  );
+}
+
+// Wrapper component with ReactFlowProvider
+export default function NodeGraphFlow(props: Readonly<NodeGraphFlowProps>) {
+  return (
+    <ReactFlowProvider>
+      <NodeGraphFlowInner {...props} />
+    </ReactFlowProvider>
   );
 }

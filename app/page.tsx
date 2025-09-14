@@ -12,19 +12,32 @@ import { IdeaGraphProvider, useIdeaGraph } from './contexts/IdeaGraphContext';
 import Lottie from 'lottie-react';
 import loadingAnimation from '../public/gagggleLoading.json';
 import { categorizeNodes, exportGraph } from './services/api';
+import { Viewport } from 'reactflow';
 
 function HomePageContent() {
   const [fileName, setFileName] = useState('Untitled Document');
   const [isPanMode, setIsPanMode] = useState(false);
-  const { generateIdeas, createEmptyNote, createPromptToolNode, state, isLoading, setSocket, setUserId } = useIdeaGraph();
+  const {
+    generateIdeas,
+    createEmptyNote,
+    createPromptToolNode,
+    state,
+    isLoading,
+    setSocket,
+    setUserId,
+  } = useIdeaGraph();
   const [currentSocket, setCurrentSocket] = useState<Socket | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string>('');
   const socketRef = useRef<Socket | null>(null);
   const userIdRef = useRef<string>('');
+  const [viewport, setViewport] = useState<Viewport>({ x: 0, y: 0, zoom: 0.8 });
 
   // Connect socket to IdeaGraphContext when it changes
   useEffect(() => {
-    console.log('[HomePage] Socket changed, passing to IdeaGraphContext:', !!currentSocket);
+    console.log(
+      '[HomePage] Socket changed, passing to IdeaGraphContext:',
+      !!currentSocket
+    );
     if (currentSocket !== null) {
       setSocket(currentSocket);
     }
@@ -32,19 +45,27 @@ function HomePageContent() {
 
   // Update user ID when it changes
   useEffect(() => {
-    console.log('[HomePage] UserId changed, passing to IdeaGraphContext:', currentUserId);
+    console.log(
+      '[HomePage] UserId changed, passing to IdeaGraphContext:',
+      currentUserId
+    );
     if (currentUserId) {
       setUserId(currentUserId);
     }
   }, [currentUserId, setUserId]);
 
   const handlePromptSubmit = useCallback(
-    async (data: {
-      provider: string;
-      model?: string;
-      ideaCount: string;
-      prompt: string;
-    }, emitIdeaGenerationStart?: () => void, emitIdeaGenerationComplete?: () => void, emitIdeaGenerationError?: () => void) => {
+    async (
+      data: {
+        provider: string;
+        model?: string;
+        ideaCount: string;
+        prompt: string;
+      },
+      emitIdeaGenerationStart?: () => void,
+      emitIdeaGenerationComplete?: () => void,
+      emitIdeaGenerationError?: () => void
+    ) => {
       const isFirstPrompt = state.nodes.size === 0;
 
       try {
@@ -132,21 +153,23 @@ function HomePageContent() {
       if (response.success && response.content) {
         // Create a blob from the markdown content
         const blob = new Blob([response.content], { type: 'text/markdown' });
-        
+
         // Create a download link
         const url = window.URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
-        link.download = `${fileName.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_export_${new Date().toISOString().split('T')[0]}.md`;
-        
+        link.download = `${fileName
+          .replace(/[^a-z0-9]/gi, '_')
+          .toLowerCase()}_export_${new Date().toISOString().split('T')[0]}.md`;
+
         // Trigger the download
         document.body.appendChild(link);
         link.click();
-        
+
         // Clean up
         document.body.removeChild(link);
         window.URL.revokeObjectURL(url);
-        
+
         console.log('Export completed successfully');
       }
     } catch (error) {
@@ -156,105 +179,141 @@ function HomePageContent() {
 
   const hasNodes = state.nodes.size > 0;
 
+  // Calculate background position based on viewport
+  const getBackgroundStyle = () => {
+    // Get the SVG dimensions (28x26 from the SVG file)
+    const svgWidth = 28;
+    const svgHeight = 26;
+
+    // Calculate background position to move with the viewport pan
+    // Pan moves the background in sync with viewport movement
+    const bgX = viewport.x;
+    const bgY = viewport.y;
+
+    // Parallax effect: background moves slower than zoom for depth effect
+    // The background position is affected by zoom but at a reduced rate
+    const parallaxFactor = 0.1; // Adjust this to control parallax intensity
+    const parallaxX = bgX + viewport.x * (viewport.zoom - 1) * parallaxFactor;
+    const parallaxY = bgY + viewport.y * (viewport.zoom - 1) * parallaxFactor;
+
+    // Keep background size constant regardless of zoom for crisp appearance
+    return {
+      backgroundColor: '#F8FAFC',
+      backgroundImage: 'url(/gagggle-background-spaced.svg)',
+      backgroundRepeat: 'repeat',
+      backgroundPosition: `${parallaxX}px ${parallaxY}px`,
+      backgroundSize: `${svgWidth}px ${svgHeight}px`,
+    };
+  };
+
   return (
     <CursorSharing>
-      {({ 
-        connectedUsers, 
-        currentUser, 
-        isConnected,
+      {({
+        connectedUsers,
+        currentUser,
         socket,
         typingUsers,
         emitTyping,
         stopTyping,
         emitIdeaGenerationStart,
         emitIdeaGenerationComplete,
-        emitIdeaGenerationError
+        emitIdeaGenerationError,
       }) => {
         // Update refs during render (safe) and trigger updates
         if (socketRef.current !== socket) {
-          console.log('[HomePage] Socket ref updated, scheduling state update:', !!socket);
+          console.log(
+            '[HomePage] Socket ref updated, scheduling state update:',
+            !!socket
+          );
           socketRef.current = socket;
           setTimeout(() => setCurrentSocket(socket), 0);
         }
-        
+
         if (userIdRef.current !== currentUser.userId) {
-          console.log('[HomePage] UserId ref updated, scheduling state update:', currentUser.userId);
+          console.log(
+            '[HomePage] UserId ref updated, scheduling state update:',
+            currentUser.userId
+          );
           userIdRef.current = currentUser.userId;
           setTimeout(() => setCurrentUserId(currentUser.userId), 0);
         }
 
         return (
-        <div
-          className='h-screen w-screen relative overflow-hidden'
-          style={{
-            backgroundColor: '#F8FAFC',
-            backgroundImage: 'url(/gagggle-background-spaced.svg)',
-            backgroundRepeat: 'repeat',
-          }}
-        >
-          {/* Top UI Elements */}
-          <div className='absolute top-4 left-4 w-fit z-20'>
-            <FileName
-              fileName={fileName}
-              onFileNameChange={handleFileNameChange}
-            />
-          </div>
-          <div className='absolute top-4 right-4 w-fit z-20'>
-            <ShareBar
-              connectedUsers={connectedUsers}
-              currentUser={currentUser}
-              onExport={handleExport}
-            />
-          </div>
-
-          {/* ToolBar - Bottom center */}
-          <div className='absolute bottom-4 left-1/2 transform -translate-x-1/2 z-20'>
-            <ToolBar 
-              onPanModeChange={setIsPanMode} 
-              onNoteToolClick={createEmptyNote}
-              onPromptToolClick={createPromptToolNode}
-            />
-          </div>
-
-          {/* Initial Centered Prompting Box */}
-          {!hasNodes && (
-            <div className='absolute inset-0 flex items-center justify-center z-10 pointer-events-none'>
-              <div className='w-full max-w-2xl px-4 pointer-events-auto'>
-                <PromptingBox
-                  onSubmit={(data) => handlePromptSubmit(data, emitIdeaGenerationStart, emitIdeaGenerationComplete, emitIdeaGenerationError)}
-                  isLoading={isLoading}
-                  typingUsers={typingUsers}
-                  currentUserId={currentUser.userId}
-                  onTyping={emitTyping}
-                  onStopTyping={stopTyping}
-                  connectedUsers={connectedUsers}
-                />
-              </div>
+          <div
+            className='h-screen w-screen relative overflow-hidden'
+            style={getBackgroundStyle()}
+          >
+            {/* Top UI Elements */}
+            <div className='absolute top-4 left-4 w-fit z-20'>
+              <FileName
+                fileName={fileName}
+                onFileNameChange={handleFileNameChange}
+              />
             </div>
-          )}
-
-          {/* Always render NodeGraph for panning, even without nodes */}
-          <NodeGraphFlow
-            onNodeGenerate={handleNodeGenerate}
-            isPanMode={isPanMode}
-          />
-
-          {/* Loading state for initial generation */}
-          {isLoading && !hasNodes && (
-            <div className='absolute inset-0 flex items-center justify-center z-10 pointer-events-none'>
-              <div className='flex flex-col items-center justify-center'>
-                <Lottie
-                  animationData={loadingAnimation}
-                  style={{ width: 200, height: 150 }}
-                  loop={true}
-                />
-                <p className='mt-4 text-gray-600 text-sm'>
-                  Generating ideas...
-                </p>
-              </div>
+            <div className='absolute top-4 right-4 w-fit z-20'>
+              <ShareBar
+                connectedUsers={connectedUsers}
+                currentUser={currentUser}
+                onExport={handleExport}
+              />
             </div>
-          )}
-        </div>
+
+            {/* ToolBar - Bottom center */}
+            <div className='absolute bottom-4 left-1/2 transform -translate-x-1/2 z-20'>
+              <ToolBar
+                onPanModeChange={setIsPanMode}
+                onNoteToolClick={createEmptyNote}
+                onPromptToolClick={createPromptToolNode}
+              />
+            </div>
+
+            {/* Initial Centered Prompting Box */}
+            {!hasNodes && (
+              <div className='absolute inset-0 flex items-center justify-center z-10 pointer-events-none'>
+                <div className='w-full max-w-2xl px-4 pointer-events-auto'>
+                  <PromptingBox
+                    onSubmit={(data) =>
+                      handlePromptSubmit(
+                        data,
+                        emitIdeaGenerationStart,
+                        emitIdeaGenerationComplete,
+                        emitIdeaGenerationError
+                      )
+                    }
+                    isLoading={isLoading}
+                    typingUsers={typingUsers}
+                    currentUserId={currentUser.userId}
+                    onTyping={emitTyping}
+                    onStopTyping={stopTyping}
+                    connectedUsers={connectedUsers}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Always render NodeGraph for panning, even without nodes */}
+            <NodeGraphFlow
+              onNodeGenerate={handleNodeGenerate}
+              isPanMode={isPanMode}
+              onViewportChange={setViewport}
+            />
+
+            {/* Loading state for initial generation */}
+            {isLoading && !hasNodes && (
+              <div className='absolute inset-0 flex items-center justify-center z-10 pointer-events-none'>
+                <div className='flex flex-col items-center justify-center'>
+                  <Lottie
+                    animationData={loadingAnimation}
+                    style={{ width: 200, height: 150 }}
+                    loop={true}
+                  />
+                  <p className='mt-4 text-gray-600 text-sm'>
+                    Generating ideas...
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
         );
       }}
     </CursorSharing>
