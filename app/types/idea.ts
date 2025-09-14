@@ -55,6 +55,8 @@ export interface IdeaGraphState {
   nodes: Map<string, IdeaNode>;
   rootNodes: string[];
   selectedNodeId?: string;
+  isMergeMode?: boolean;
+  selectedNodeIds?: Set<string>;
 }
 
 export interface NodePosition {

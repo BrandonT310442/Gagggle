@@ -41,7 +41,19 @@ export default function NodeGraphFlow({
   connectedUsers = [],
   currentUser,
 }: Readonly<NodeGraphFlowProps>) {
-  const { state, selectNode, updateNodePosition, updateNodeContent, removeNode, createChildNote, createChildPrompt, addPromptNode, isLoading, error } = useIdeaGraph();
+  const { 
+    state, 
+    selectNode, 
+    updateNodePosition, 
+    updateNodeContent, 
+    removeNode, 
+    createChildNote, 
+    createChildPrompt, 
+    addPromptNode,
+    toggleNodeSelection,
+    isLoading, 
+    error 
+  } = useIdeaGraph();
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
 
@@ -90,6 +102,9 @@ export default function NodeGraphFlow({
           onRemoveNode: removeNode,
           connectedUsers,
           currentUser,
+          isMergeMode: state.isMergeMode,
+          isSelectedForMerge: state.selectedNodeIds?.has(node.id),
+          onToggleSelection: toggleNodeSelection,
         },
       });
     });
@@ -110,6 +125,9 @@ export default function NodeGraphFlow({
           onRemoveNode: removeNode,
           connectedUsers,
           currentUser,
+          isMergeMode: state.isMergeMode,
+          isSelectedForMerge: state.selectedNodeIds?.has(node.id),
+          onToggleSelection: toggleNodeSelection,
         },
       });
     });
@@ -135,6 +153,9 @@ export default function NodeGraphFlow({
           onSelect: () => selectNode(node.id),
           onGenerateChildren: () => createChildPrompt(node.id),
           onAddManualChild: () => createChildNote(node.id),
+          isMergeMode: state.isMergeMode,
+          isSelectedForMerge: state.selectedNodeIds?.has(node.id),
+          onToggleSelection: toggleNodeSelection,
         },
       });
     });
@@ -162,6 +183,9 @@ export default function NodeGraphFlow({
           onSelect: () => selectNode(node.id),
           onGenerateChildren: () => createChildPrompt(node.id),
           onAddManualChild: () => createChildNote(node.id),
+          isMergeMode: state.isMergeMode,
+          isSelectedForMerge: state.selectedNodeIds?.has(node.id),
+          onToggleSelection: toggleNodeSelection,
         },
       });
     });
@@ -258,6 +282,7 @@ export default function NodeGraphFlow({
         onNodeClick={onNodeClick}
         onNodeDragStop={onNodeDragStop}
         nodeTypes={nodeTypes}
+        nodesDraggable={!state.isMergeMode}
         connectionMode={ConnectionMode.Loose}
         fitView
         fitViewOptions={{

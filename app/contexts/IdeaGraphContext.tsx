@@ -4,6 +4,7 @@ import React, { createContext, useContext, useState, useCallback, useEffect, Rea
 import { Socket } from 'socket.io-client';
 import { IdeaNode, IdeaGraphState, GenerateIdeasRequest } from '../types/idea';
 import { ideaGenerationService } from '../services/ideaGeneration';
+import { mergeNodes } from '../services/api';
 
 interface IdeaGraphContextType {
   state: IdeaGraphState;
@@ -17,12 +18,16 @@ interface IdeaGraphContextType {
   createPromptToolNode: () => void;
   createChildNote: (parentNodeId: string) => void;
   createChildPrompt: (parentNodeId: string) => void;
-  addPromptNode: (promptNode: IdeaNode) => void;
+  addPromptNode: (promptNode: IdeaNode) => Promise<void>;
   removeNode: (nodeId: string) => void;
   updateNodeContent: (nodeId: string, content: string) => void;
   updateNodePosition: (nodeId: string, position: { x: number; y: number }) => void;
   selectNode: (nodeId: string | undefined) => void;
   clearGraph: () => void;
+  toggleMergeMode: () => void;
+  toggleNodeSelection: (nodeId: string) => void;
+  clearMergeSelection: () => void;
+  mergeSelectedNodes: (mergePrompt?: string) => Promise<void>;
   isLoading: boolean;
   error: string | null;
   setSocket: (socket: Socket | null) => void;
@@ -36,6 +41,8 @@ export function IdeaGraphProvider({ children }: Readonly<{ children: ReactNode }
     nodes: new Map(),
     rootNodes: [],
     selectedNodeId: undefined,
+    isMergeMode: false,
+    selectedNodeIds: new Set(),
   });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -263,7 +270,7 @@ export function IdeaGraphProvider({ children }: Readonly<{ children: ReactNode }
       
       const promptPlaceholder: IdeaNode = {
         id: promptPlaceholderId,
-        content: request.prompt,
+        content: request.displayPrompt || request.prompt, // Use displayPrompt if available (clean prompt without context)
         parentId: request.parentNodeId || undefined, // Set parent ID if provided
         childIds: [],
         metadata: {
@@ -984,9 +991,235 @@ export function IdeaGraphProvider({ children }: Readonly<{ children: ReactNode }
       nodes: new Map(),
       rootNodes: [],
       selectedNodeId: undefined,
+      isMergeMode: false,
+      selectedNodeIds: new Set(),
     });
     setError(null);
   }, []);
+
+  const toggleMergeMode = useCallback(() => {
+    setState(prev => ({
+      ...prev,
+      isMergeMode: !prev.isMergeMode,
+      selectedNodeIds: prev.isMergeMode ? new Set() : prev.selectedNodeIds, // Clear selection when exiting merge mode
+    }));
+  }, []);
+
+  const toggleNodeSelection = useCallback((nodeId: string) => {
+    setState(prev => {
+      if (!prev.isMergeMode) return prev;
+      
+      // Only allow selecting idea nodes (not prompts, comments, or prompt tools)
+      const node = prev.nodes.get(nodeId);
+      if (!node || node.metadata?.isPrompt || node.metadata?.isPromptTool || node.metadata?.isComment) {
+        return prev;
+      }
+      
+      const newSelectedIds = new Set(prev.selectedNodeIds);
+      if (newSelectedIds.has(nodeId)) {
+        newSelectedIds.delete(nodeId);
+      } else {
+        newSelectedIds.add(nodeId);
+      }
+      
+      return {
+        ...prev,
+        selectedNodeIds: newSelectedIds,
+      };
+    });
+  }, []);
+
+  const clearMergeSelection = useCallback(() => {
+    setState(prev => ({
+      ...prev,
+      selectedNodeIds: new Set(),
+    }));
+  }, []);
+
+  const mergeSelectedNodes = useCallback(async (mergePrompt?: string) => {
+    const selectedIds = Array.from(state.selectedNodeIds || []);
+    if (selectedIds.length < 2) {
+      setError('Please select at least 2 nodes to merge');
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      // Prepare nodes for merge
+      const nodesToMerge = selectedIds
+        .map(id => state.nodes.get(id))
+        .filter((node): node is IdeaNode => node !== undefined);
+
+      if (nodesToMerge.length < 2) {
+        setError('Could not find selected nodes');
+        return;
+      }
+
+      // Calculate position for merged node (center of selected nodes)
+      const avgX = nodesToMerge.reduce((sum, node) => sum + (node.position?.x || 0), 0) / nodesToMerge.length;
+      const maxY = Math.max(...nodesToMerge.map(node => node.position?.y || 0));
+      const mergedNodePosition = { x: avgX, y: maxY + 200 };
+
+      // We'll implement the API call in the next step
+      // For now, create a placeholder merged node
+      const mergedNode: IdeaNode = {
+        id: `merged-${Date.now()}`,
+        content: 'Merging...',
+        parentId: undefined, // Merged nodes don't have a single parent
+        childIds: [],
+        metadata: {
+          generatedBy: 'ai',
+          isMerged: true,
+          mergedFrom: selectedIds,
+          isLoading: true,
+        },
+        createdBy: userId || 'system',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        position: mergedNodePosition,
+      };
+
+      // Add merged node and update parent nodes to include it as a child
+      setState(prev => {
+        const newNodes = new Map(prev.nodes);
+        
+        // Add the merged node
+        newNodes.set(mergedNode.id, mergedNode);
+        
+        // Update each parent node to include the merged node as a child
+        selectedIds.forEach(parentId => {
+          const parent = newNodes.get(parentId);
+          if (parent) {
+            parent.childIds = [...parent.childIds, mergedNode.id];
+            newNodes.set(parentId, parent);
+          }
+        });
+        
+        return {
+          ...prev,
+          nodes: newNodes,
+          isMergeMode: false,
+          selectedNodeIds: new Set(),
+        };
+      });
+
+      // Call the merge API endpoint
+      console.log('[IdeaGraphContext] Calling merge API with nodes:', nodesToMerge.map(n => ({
+        id: n.id,
+        content: n.content
+      })));
+      
+      const mergeResponse = await mergeNodes({
+        nodes: nodesToMerge.map(node => ({
+          id: node.id,
+          content: node.content,
+          metadata: node.metadata,
+        })),
+        mergePrompt,
+        modelConfig: {
+          provider: 'groq', // Default to groq for now
+          model: 'llama-3.3-70b-versatile',
+        },
+      });
+      
+      console.log('[IdeaGraphContext] Merge API response:', mergeResponse);
+
+      if (mergeResponse.success && mergeResponse.mergedIdea) {
+        // Update the placeholder merged node with actual content
+        setState(prev => {
+          const newNodes = new Map(prev.nodes);
+          const placeholderNode = newNodes.get(mergedNode.id);
+          
+          if (placeholderNode) {
+            // Update the placeholder with actual merged content
+            placeholderNode.content = mergeResponse.mergedIdea.content;
+            placeholderNode.metadata = {
+              ...placeholderNode.metadata,
+              ...mergeResponse.mergedIdea.metadata,
+              isLoading: false,
+              generationTime: mergeResponse.generationTime,
+            };
+            newNodes.set(mergedNode.id, placeholderNode);
+          }
+          
+          return {
+            ...prev,
+            nodes: newNodes,
+          };
+        });
+
+        // Sync with other users
+        if (socket && userId) {
+          const finalMergedNode = state.nodes.get(mergedNode.id);
+          if (finalMergedNode) {
+            socket.emit('sync-ideas', {
+              userId,
+              ideas: [finalMergedNode],
+              parentNodeId: null, // Merged nodes have multiple parents
+            });
+          }
+        }
+      } else {
+        // Remove the placeholder on error
+        setState(prev => {
+          const newNodes = new Map(prev.nodes);
+          newNodes.delete(mergedNode.id);
+          
+          // Remove from parent childIds
+          selectedIds.forEach(parentId => {
+            const parent = newNodes.get(parentId);
+            if (parent) {
+              parent.childIds = parent.childIds.filter(id => id !== mergedNode.id);
+              newNodes.set(parentId, parent);
+            }
+          });
+          
+          return {
+            ...prev,
+            nodes: newNodes,
+          };
+        });
+        
+        throw new Error('Failed to merge nodes');
+      }
+      
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to merge nodes';
+      setError(errorMessage);
+      console.error('[IdeaGraphContext] Error merging nodes:', err);
+      
+      // Log full error details
+      if (err instanceof Error) {
+        console.error('[IdeaGraphContext] Error stack:', err.stack);
+      }
+      
+      // Remove the placeholder on error
+      setState(prev => {
+        const newNodes = new Map(prev.nodes);
+        newNodes.delete(mergedNode.id);
+        
+        // Remove from parent childIds
+        selectedIds.forEach(parentId => {
+          const parent = newNodes.get(parentId);
+          if (parent) {
+            parent.childIds = parent.childIds.filter(id => id !== mergedNode.id);
+            newNodes.set(parentId, parent);
+          }
+        });
+        
+        return {
+          ...prev,
+          nodes: newNodes,
+          isMergeMode: false,
+          selectedNodeIds: new Set(),
+        };
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [state.selectedNodeIds, state.nodes, userId]);
 
   return (
     <IdeaGraphContext.Provider value={{
@@ -1003,6 +1236,10 @@ export function IdeaGraphProvider({ children }: Readonly<{ children: ReactNode }
       updateNodePosition,
       selectNode,
       clearGraph,
+      toggleMergeMode,
+      toggleNodeSelection,
+      clearMergeSelection,
+      mergeSelectedNodes,
       isLoading,
       error,
       setSocket,

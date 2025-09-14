@@ -7,6 +7,7 @@ import FileName from './components/FileName';
 import CursorSharing from './components/CursorSharing';
 import ShareBar from './components/ShareBar';
 import ToolBar from './components/ToolBar';
+import MergeConfirmation from './components/MergeConfirmation';
 import NodeGraphFlow from './components/NodeGraphFlow';
 import { IdeaGraphProvider, useIdeaGraph } from './contexts/IdeaGraphContext';
 import Lottie from 'lottie-react';
@@ -16,7 +17,19 @@ import { categorizeNodes, exportGraph } from './services/api';
 function HomePageContent() {
   const [fileName, setFileName] = useState('Untitled Document');
   const [isPanMode, setIsPanMode] = useState(false);
-  const { generateIdeas, createEmptyNote, createComment, createPromptToolNode, state, isLoading, setSocket, setUserId } = useIdeaGraph();
+  const { 
+    generateIdeas, 
+    createEmptyNote, 
+    createComment, 
+    createPromptToolNode,
+    toggleMergeMode,
+    mergeSelectedNodes,
+    clearMergeSelection,
+    state, 
+    isLoading, 
+    setSocket, 
+    setUserId 
+  } = useIdeaGraph();
   const [currentSocket, setCurrentSocket] = useState<Socket | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string>('');
   const socketRef = useRef<Socket | null>(null);
@@ -216,8 +229,24 @@ function HomePageContent() {
               onNoteToolClick={createEmptyNote}
               onCommentToolClick={createComment}
               onPromptToolClick={createPromptToolNode}
+              onMergeToolClick={toggleMergeMode}
+              isMergeMode={state.isMergeMode}
             />
           </div>
+          
+          {/* Merge Confirmation - Above toolbar when nodes are selected */}
+          {state.isMergeMode && state.selectedNodeIds && state.selectedNodeIds.size > 0 && (
+            <div className='absolute bottom-20 left-1/2 transform -translate-x-1/2 z-30'>
+              <MergeConfirmation
+                selectedCount={state.selectedNodeIds.size}
+                onMerge={mergeSelectedNodes}
+                onCancel={() => {
+                  clearMergeSelection();
+                  toggleMergeMode();
+                }}
+              />
+            </div>
+          )}
 
           {/* Initial Centered Prompting Box */}
           {!hasNodes && (

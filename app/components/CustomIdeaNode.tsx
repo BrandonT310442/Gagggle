@@ -44,7 +44,7 @@ const OpenAIIcon = () => {
   );
 };
 
-export default function CustomIdeaNode({ data, selected }: NodeProps) {
+export default function CustomIdeaNode({ data, selected, draggable }: NodeProps) {
   const [isHovered, setIsHovered] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editContent, setEditContent] = useState(data.node.content);
@@ -52,6 +52,10 @@ export default function CustomIdeaNode({ data, selected }: NodeProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const node = data.node;
+  
+  const isMergeMode = data.isMergeMode || false;
+  const isSelectedForMerge = data.isSelectedForMerge || false;
+  const onToggleSelection = data.onToggleSelection;
 
   const isManualNote = node.metadata?.isManualNote;
   const isEmptyManualNote = isManualNote && !node.content.trim();
@@ -354,15 +358,24 @@ export default function CustomIdeaNode({ data, selected }: NodeProps) {
           ${isComment ? 'bg-gray-50' : 'bg-white'} box-border flex flex-col gap-6 items-start justify-start p-6 relative
           cursor-pointer transition-all duration-200
           ${selected ? 'ring-2 ring-blue-500 shadow-lg' : ''}
+          ${isSelectedForMerge ? 'ring-2 ring-purple-500 shadow-lg' : ''}
           ${isHovered ? 'shadow-xl' : 'shadow-md'}
           ${isComment ? 'border-l-4' : ''}
+          ${isMergeMode ? 'hover:ring-2 hover:ring-purple-300' : ''}
         `}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
+        onClick={(e) => {
+          if (isMergeMode && onToggleSelection) {
+            e.stopPropagation();
+            onToggleSelection(node.id);
+          }
+        }}
         style={{
           width: isComment ? '26rem' : '28rem',
           maxWidth: isComment ? '30rem' : '32rem',
           borderLeftColor: isComment ? userColor : undefined,
+          cursor: isMergeMode ? 'pointer' : 'move',
         }}
       >
         <div className='flex flex-col gap-2 items-start justify-start relative shrink-0 w-full'>

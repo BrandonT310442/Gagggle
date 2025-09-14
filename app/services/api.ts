@@ -1,5 +1,30 @@
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
+// Merge API types
+export interface MergeNodesRequest {
+  nodes: Array<{
+    id: string;
+    content: string;
+    metadata?: Record<string, any>;
+  }>;
+  mergePrompt?: string;
+  modelConfig?: {
+    provider: 'groq' | 'cohere' | 'mock';
+    model?: string;
+  };
+}
+
+export interface MergeNodesResponse {
+  success: boolean;
+  mergedIdea: {
+    id: string;
+    content: string;
+    metadata?: Record<string, any>;
+  };
+  sourceNodeIds: string[];
+  generationTime?: number;
+}
+
 export class ApiClient {
   private baseUrl: string;
 
@@ -81,4 +106,8 @@ export interface ExportResponse {
 
 export async function exportGraph(): Promise<ExportResponse> {
   return apiClient.get<ExportResponse>('/api/export');
+}
+
+export async function mergeNodes(request: MergeNodesRequest): Promise<MergeNodesResponse> {
+  return apiClient.post<MergeNodesResponse>('/api/merge', request);
 }
