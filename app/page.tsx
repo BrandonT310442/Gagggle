@@ -7,7 +7,7 @@ import FileName from './components/FileName';
 import CursorSharing from './components/CursorSharing';
 import ShareBar from './components/ShareBar';
 import ToolBar from './components/ToolBar';
-import NodeGraph from './components/NodeGraph';
+import NodeGraphFlow from './components/NodeGraphFlow';
 import { IdeaGraphProvider, useIdeaGraph } from './contexts/IdeaGraphContext';
 import Lottie from 'lottie-react';
 import loadingAnimation from '../public/gagggleLoading.json';
@@ -231,7 +231,7 @@ function HomePageContent() {
           )}
 
           {/* Always render NodeGraph for panning, even without nodes */}
-          <NodeGraph
+          <NodeGraphFlow
             onNodeGenerate={handleNodeGenerate}
             isPanMode={isPanMode}
           />
