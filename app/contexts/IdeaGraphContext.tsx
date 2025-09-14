@@ -474,12 +474,12 @@ export function IdeaGraphProvider({ children }: Readonly<{ children: ReactNode }
     console.log('[IdeaGraphContext] createEmptyNote called');
     
     // Generate unique ID for the new note
-    const noteId = `note-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const noteId = `note-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
     
     // Find the next position in the deterministic grid
     const position = getNextManualNotePosition(state.nodes);
     
-    // Create the empty note node
+    // Create the empty note node as a draft (not shared until saved)
     const emptyNote: IdeaNode = {
       id: noteId,
       content: '', // Empty content for manual editing
@@ -488,6 +488,7 @@ export function IdeaGraphProvider({ children }: Readonly<{ children: ReactNode }
       metadata: {
         generatedBy: 'user',
         isManualNote: true,
+        isDraft: true, // Mark as draft - won't be shared until saved
         createdAt: new Date().toISOString(),
       },
       createdBy: userId || 'unknown',
@@ -512,15 +513,7 @@ export function IdeaGraphProvider({ children }: Readonly<{ children: ReactNode }
       };
     });
 
-    // Sync with other users
-    if (socket && userId) {
-      console.log('[IdeaGraphContext] Emitting sync-ideas for new manual note');
-      socket.emit('sync-ideas', {
-        userId,
-        ideas: [emptyNote],
-        parentNodeId: null
-      });
-    }
+    // Note: Draft nodes are not synced immediately. They will be synced when saved.
   }, [state.nodes, getNextManualNotePosition, socket, userId]);
 
   const createPromptToolNode = useCallback(() => {
@@ -602,8 +595,8 @@ export function IdeaGraphProvider({ children }: Readonly<{ children: ReactNode }
         }
       });
 
-      // Sync node removal with other users
-      if (socket && userId && nodeToRemove) {
+      // Sync node removal with other users (but not for draft nodes)
+      if (socket && userId && nodeToRemove && !nodeToRemove.metadata?.isDraft) {
         console.log('[IdeaGraphContext] Emitting node removal to other users');
         socket.emit('remove-node', {
           userId,
@@ -628,15 +621,20 @@ export function IdeaGraphProvider({ children }: Readonly<{ children: ReactNode }
       const node = newNodes.get(nodeId);
       
       if (node) {
+        const wasDraft = node.metadata?.isDraft;
         const updatedNode = {
           ...node,
           content,
           updatedAt: new Date(),
+          metadata: {
+            ...node.metadata,
+            isDraft: false, // When content is saved, it's no longer a draft
+          },
         };
         newNodes.set(nodeId, updatedNode);
 
-        // Sync with other users
-        if (socket && userId) {
+        // Sync with other users only if it's not a draft or was a draft that's now being published
+        if (socket && userId && (!wasDraft || (wasDraft && content.trim()))) {
           console.log('[IdeaGraphContext] Emitting sync-ideas for updated content');
           socket.emit('sync-ideas', {
             userId,
@@ -668,8 +666,8 @@ export function IdeaGraphProvider({ children }: Readonly<{ children: ReactNode }
         };
         newNodes.set(nodeId, updatedNode);
 
-        // Sync position update with other users
-        if (socket && userId) {
+        // Sync position update with other users (but not for draft nodes)
+        if (socket && userId && !updatedNode.metadata?.isDraft) {
           console.log('[IdeaGraphContext] Emitting sync-ideas for position update');
           socket.emit('sync-ideas', {
             userId,
