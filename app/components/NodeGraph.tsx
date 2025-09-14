@@ -17,7 +17,7 @@ export default function NodeGraph({
   onNodeGenerate,
   isPanMode = false,
 }: Readonly<NodeGraphProps>) {
-  const { state, selectNode, updateNodeContent, isLoading, error } = useIdeaGraph();
+  const { state, selectNode, updateNodeContent, createChildNote, isLoading, error } = useIdeaGraph();
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
   const [zoom, setZoom] = useState(1);
@@ -192,6 +192,7 @@ export default function NodeGraph({
                             isSelected={state.selectedNodeId === node.id}
                             onSelect={() => selectNode(node.id)}
                             onGenerateChildren={() => onNodeGenerate?.(node.id)}
+                            onAddManualChild={() => createChildNote(node.id)}
                             onUpdateContent={updateNodeContent}
                           />
                         ))}
@@ -216,6 +217,7 @@ export default function NodeGraph({
                         isSelected={state.selectedNodeId === node.id}
                         onSelect={() => selectNode(node.id)}
                         onGenerateChildren={() => onNodeGenerate?.(node.id)}
+                        onAddManualChild={() => createChildNote(node.id)}
                         onUpdateContent={updateNodeContent}
                       />
                     </div>

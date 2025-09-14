@@ -15,6 +15,7 @@ interface IdeaGraphContextType {
   createEmptyNote: () => void;
   createComment: () => void;
   createPromptToolNode: () => void;
+  createChildNote: (parentNodeId: string) => void;
   removeNode: (nodeId: string) => void;
   updateNodeContent: (nodeId: string, content: string) => void;
   updateNodePosition: (nodeId: string, position: { x: number; y: number }) => void;
@@ -597,6 +598,74 @@ export function IdeaGraphProvider({ children }: Readonly<{ children: ReactNode }
     // Note: Draft nodes are not synced immediately. They will be synced when saved.
   }, [state.nodes, getNextCommentPosition, socket, userId]);
 
+  const createChildNote = useCallback((parentNodeId: string) => {
+    console.log('[IdeaGraphContext] createChildNote called for parent:', parentNodeId);
+    
+    // Generate unique ID for the new note
+    const noteId = `child-note-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    
+    // Get parent node to calculate position
+    const parentNode = state.nodes.get(parentNodeId);
+    if (!parentNode) {
+      console.error('Parent node not found:', parentNodeId);
+      return;
+    }
+    
+    // Calculate position below parent
+    const position = {
+      x: parentNode.position?.x || 0,
+      y: (parentNode.position?.y || 0) + 250, // Position below parent with gap
+    };
+    
+    // Create the child note node
+    const childNote: IdeaNode = {
+      id: noteId,
+      content: '', // Empty content for manual editing
+      parentId: parentNodeId,
+      childIds: [],
+      metadata: {
+        generatedBy: 'user',
+        isManualNote: true,
+        createdAt: new Date().toISOString(),
+      },
+      createdBy: userId || 'unknown',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      position: position,
+    };
+
+    // Add the note to the state
+    setState(prevState => {
+      const newNodes = new Map(prevState.nodes);
+      
+      // Add the new child node
+      newNodes.set(childNote.id, childNote);
+      
+      // Update parent node's childIds
+      const parent = newNodes.get(parentNodeId);
+      if (parent) {
+        parent.childIds = [...parent.childIds, childNote.id];
+        newNodes.set(parentNodeId, parent);
+      }
+
+      return {
+        ...prevState,
+        nodes: newNodes,
+        selectedNodeId: childNote.id, // Auto-select the new note
+      };
+    });
+
+    // Sync with other users
+    if (socket && userId) {
+      console.log('[IdeaGraphContext] Emitting sync-ideas for new child note');
+      socket.emit('sync-ideas', {
+        userId,
+        ideas: [childNote],
+        parentNodeId: parentNodeId
+      });
+    }
+  }, [state.nodes, socket, userId]);
+
   const createPromptToolNode = useCallback(() => {
     console.log('[IdeaGraphContext] createPromptToolNode called');
     
@@ -790,6 +859,7 @@ export function IdeaGraphProvider({ children }: Readonly<{ children: ReactNode }
       createEmptyNote,
       createComment,
       createPromptToolNode,
+      createChildNote,
       removeNode,
       updateNodeContent,
       updateNodePosition,
