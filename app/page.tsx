@@ -16,7 +16,7 @@ import { categorizeNodes, exportGraph } from './services/api';
 function HomePageContent() {
   const [fileName, setFileName] = useState('Untitled Document');
   const [isPanMode, setIsPanMode] = useState(false);
-  const { generateIdeas, state, isLoading, setSocket, setUserId } = useIdeaGraph();
+  const { generateIdeas, createEmptyNote, state, isLoading, setSocket, setUserId } = useIdeaGraph();
   const [currentSocket, setCurrentSocket] = useState<Socket | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string>('');
   const socketRef = useRef<Socket | null>(null);
@@ -207,7 +207,10 @@ function HomePageContent() {
 
           {/* ToolBar - Bottom center */}
           <div className='absolute bottom-4 left-1/2 transform -translate-x-1/2 z-20'>
-            <ToolBar onPanModeChange={setIsPanMode} />
+            <ToolBar 
+              onPanModeChange={setIsPanMode} 
+              onNoteToolClick={createEmptyNote}
+            />
           </div>
 
           {/* Initial Centered Prompting Box */}

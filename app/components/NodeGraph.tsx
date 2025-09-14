@@ -4,7 +4,6 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useIdeaGraph } from '../contexts/IdeaGraphContext';
 import IdeaNode from './IdeaNode';
 import PromptNode from './PromptNode';
-import { IdeaNode as IdeaNodeType } from '../types/idea';
 import Lottie from 'lottie-react';
 import loadingAnimation from '../../public/gagggleLoading.json';
 
@@ -17,7 +16,7 @@ export default function NodeGraph({
   onNodeGenerate,
   isPanMode = false,
 }: Readonly<NodeGraphProps>) {
-  const { state, selectNode, isLoading, error } = useIdeaGraph();
+  const { state, selectNode, updateNodeContent, isLoading, error } = useIdeaGraph();
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
   const [zoom, setZoom] = useState(1);
@@ -26,75 +25,12 @@ export default function NodeGraph({
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
 
-  // Group nodes by generation level (same parent or root nodes)
-  const groupNodesByLevel = useCallback(() => {
-    const nodes = Array.from(state.nodes.values());
-    const levels: { promptNodes: IdeaNodeType[], ideaNodes: IdeaNodeType[] }[] = [];
-
-    // Group by prompt nodes and their related ideas
-    const promptNodes = nodes.filter(node => node.metadata?.isPrompt);
-    const ideaNodes = nodes.filter(node => !node.metadata?.isPrompt);
-
-    // For each prompt node, find its related ideas (root level ideas without parents)
-    promptNodes.forEach(promptNode => {
-      const relatedIdeas = ideaNodes.filter(node => !node.parentId);
-      levels.push({
-        promptNodes: [promptNode],
-        ideaNodes: relatedIdeas
-      });
-    });
-
-    // If there are ideas without prompt nodes (shouldn't happen but safety)
-    if (promptNodes.length === 0 && ideaNodes.length > 0) {
-      const rootIdeas = ideaNodes.filter(node => !node.parentId);
-      levels.push({
-        promptNodes: [],
-        ideaNodes: rootIdeas
-      });
-    }
-
-    // Additional levels: group child nodes by their parent
-    const processedParents = new Set();
-    const remainingNodes = ideaNodes.filter(node => node.parentId && !processedParents.has(node.parentId));
-
-    while (remainingNodes.length > 0) {
-      const currentLevelNodes: IdeaNodeType[] = [];
-      const parentsInThisLevel = new Set<string>();
-
-      remainingNodes.forEach(node => {
-        if (node.parentId && !processedParents.has(node.parentId)) {
-          parentsInThisLevel.add(node.parentId);
-        }
-      });
-
-      parentsInThisLevel.forEach(parentId => {
-        const childNodes = remainingNodes.filter(node => node.parentId === parentId);
-        currentLevelNodes.push(...childNodes);
-        processedParents.add(parentId);
-      });
-
-      if (currentLevelNodes.length > 0) {
-        levels.push({
-          promptNodes: [],
-          ideaNodes: currentLevelNodes
-        });
-        remainingNodes.splice(0, remainingNodes.length, ...remainingNodes.filter(node =>
-          !currentLevelNodes.some(levelNode => levelNode.id === node.id)
-        ));
-      } else {
-        break;
-      }
-    }
-
-    return levels;
-  }, [state.nodes]);
-
   const handleWheel = useCallback((e: WheelEvent) => {
     e.preventDefault();
 
-    // Always zoom with scroll, no modifier needed
-    const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
-    setZoom(prevZoom => Math.min(Math.max(prevZoom * zoomFactor, 0.1), 3));
+    // Always zoom with scroll, no modifier needed - reduced sensitivity
+    const zoomFactor = e.deltaY > 0 ? 0.95 : 1.05; // Much gentler zoom changes
+    setZoom(prevZoom => Math.min(Math.max(prevZoom * zoomFactor, 0.01), 10)); // Much lower zoom out limit (0.01 = 1%)
   }, []);
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
@@ -179,6 +115,9 @@ export default function NodeGraph({
         cursor: getCursorStyle()
       }}
       onMouseDown={handleMouseDown}
+      role="application"
+      aria-label="Idea graph canvas"
+      tabIndex={0}
     >
       {error && (
         <div className='absolute top-20 left-8 right-8 z-10 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded'>
@@ -226,24 +165,54 @@ export default function NodeGraph({
                 </div>
               ))}
 
-            {/* All Idea Nodes - Horizontal row */}
-            <div className='flex justify-center'>
-              <div
-                className='flex items-start gap-6'
-                style={{ minWidth: 'fit-content' }}
-              >
-                {Array.from(state.nodes.values())
-                  .filter(node => !node.metadata?.isPrompt)
-                  .map((node) => (
+            {/* All Idea Nodes - Positioned absolutely for manual notes, horizontal row for generated ideas */}
+            <div className='relative'>
+              {/* Generated Ideas - Horizontal row */}
+              {Array.from(state.nodes.values())
+                .filter(node => !node.metadata?.isPrompt && !node.metadata?.isManualNote)
+                .length > 0 && (
+                <div className='flex justify-center'>
+                  <div
+                    className='flex items-start gap-6'
+                    style={{ minWidth: 'fit-content' }}
+                  >
+                    {Array.from(state.nodes.values())
+                      .filter(node => !node.metadata?.isPrompt && !node.metadata?.isManualNote)
+                      .map((node) => (
+                        <IdeaNode
+                          key={node.id}
+                          node={node}
+                          isSelected={state.selectedNodeId === node.id}
+                          onSelect={() => selectNode(node.id)}
+                          onGenerateChildren={() => onNodeGenerate?.(node.id)}
+                          onUpdateContent={updateNodeContent}
+                        />
+                      ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Manual Notes - Absolutely positioned */}
+              {Array.from(state.nodes.values())
+                .filter(node => node.metadata?.isManualNote)
+                .map((node) => (
+                  <div
+                    key={node.id}
+                    className='absolute'
+                    style={{
+                      left: node.position?.x || 0,
+                      top: node.position?.y || 0,
+                    }}
+                  >
                     <IdeaNode
-                      key={node.id}
                       node={node}
                       isSelected={state.selectedNodeId === node.id}
                       onSelect={() => selectNode(node.id)}
                       onGenerateChildren={() => onNodeGenerate?.(node.id)}
+                      onUpdateContent={updateNodeContent}
                     />
-                  ))}
-              </div>
+                  </div>
+                ))}
             </div>
           </div>
         )}
