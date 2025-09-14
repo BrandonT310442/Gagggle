@@ -10,7 +10,7 @@ import NodeGraph from './components/NodeGraph';
 import { IdeaGraphProvider, useIdeaGraph } from './contexts/IdeaGraphContext';
 import Lottie from 'lottie-react';
 import loadingAnimation from '../public/gagggleLoading.json';
-import { categorizeNodes } from './services/api';
+import { categorizeNodes, exportGraph } from './services/api';
 
 function HomePageContent() {
   const [fileName, setFileName] = useState('Untitled Document');
@@ -85,9 +85,32 @@ function HomePageContent() {
     setFileName(newName);
   };
 
-  const handleExport = () => {
-    console.log('Exporting...');
-    // TODO: Implement export functionality
+  const handleExport = async () => {
+    try {
+      const response = await exportGraph();
+      if (response.success && response.content) {
+        // Create a blob from the markdown content
+        const blob = new Blob([response.content], { type: 'text/markdown' });
+        
+        // Create a download link
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `${fileName.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_export_${new Date().toISOString().split('T')[0]}.md`;
+        
+        // Trigger the download
+        document.body.appendChild(link);
+        link.click();
+        
+        // Clean up
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+        
+        console.log('Export completed successfully');
+      }
+    } catch (error) {
+      console.error('Export failed:', error);
+    }
   };
 
   const hasNodes = state.nodes.size > 0;

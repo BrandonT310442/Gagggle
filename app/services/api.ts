@@ -73,3 +73,12 @@ export interface CategorizeResponse {
 export async function categorizeNodes(request: CategorizeRequest): Promise<CategorizeResponse> {
   return apiClient.post<CategorizeResponse>('/api/categorize', request);
 }
+
+export interface ExportResponse {
+  success: boolean;
+  content: string;
+}
+
+export async function exportGraph(): Promise<ExportResponse> {
+  return apiClient.get<ExportResponse>('/api/export');
+}
