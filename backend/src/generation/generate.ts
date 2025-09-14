@@ -27,17 +27,22 @@ export async function generateIdeas(request: GenerateIdeasRequest): Promise<Gene
     const modelConfig = request.modelConfig || { provider: 'mock' as const };
     
     console.log(`[Generate] Starting generation with provider: ${modelConfig.provider}, model: ${modelConfig.model}`);
+    console.log(`[Generate] Request details: parentNode: ${!!request.parentNode}, createPromptNode: ${request.createPromptNode}`);
+    if (request.prompt.includes('Context from previous idea')) {
+      console.log(`[Generate] Prompt contains context prefix`);
+    }
     
-    // Create a node for the user's prompt if this is a root generation (no parent)
+    // Create a prompt node if requested
     let promptNode: IdeaNode | undefined;
     let effectiveParentNode = request.parentNode;
     
-    if (!request.parentNode && request.createPromptNode !== false) {
+    if (request.createPromptNode !== false) {
       // Create a node for the user prompt
+      // Use displayPrompt if provided (for showing clean prompt without context), otherwise use prompt
       promptNode = {
         id: generateId(),
-        content: request.prompt,
-        parentId: undefined,
+        content: request.displayPrompt || request.prompt,
+        parentId: request.parentNode?.id, // Connect to parent if provided
         childIds: [],
         metadata: {
           generatedBy: 'user',
@@ -55,6 +60,9 @@ export async function generateIdeas(request: GenerateIdeasRequest): Promise<Gene
       // Add prompt node to the graph
       graphStore.addNode(promptNode);
       console.log(`[Generate] Created prompt node: ${promptNode.id}`);
+      if (request.displayPrompt) {
+        console.log(`[Generate] Using displayPrompt for node content: "${request.displayPrompt}"`);
+      }
       
       // Use the prompt node as the parent for generated ideas
       effectiveParentNode = {
@@ -124,6 +132,12 @@ export async function generateIdeas(request: GenerateIdeasRequest): Promise<Gene
     
     // Include prompt node if it was created
     const allIdeas = promptNode ? [promptNode, ...ideas] : ideas;
+    
+    // Debug log to track what nodes are being returned
+    console.log(`[Generate] Returning ${allIdeas.length} nodes. Has prompt node: ${!!promptNode}`);
+    if (promptNode) {
+      console.log(`[Generate] Prompt node content: "${promptNode.content.substring(0, 100)}..."`);
+    }
 
     return {
       success: true,

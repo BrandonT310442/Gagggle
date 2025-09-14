@@ -240,6 +240,7 @@ export function IdeaGraphProvider({ children }: Readonly<{ children: ReactNode }
     parentNodeId?: string;
     createPromptNode?: boolean;
     position?: { x: number; y: number };
+    displayPrompt?: string;
   }) => {
     console.log('[IdeaGraphContext] generateIdeas called with request:', request);
     console.log('[IdeaGraphContext] Current socket:', !!socket, 'userId:', userId);
@@ -356,9 +357,11 @@ export function IdeaGraphProvider({ children }: Readonly<{ children: ReactNode }
     try {
       const apiRequest: GenerateIdeasRequest = {
         prompt: request.prompt,
+        displayPrompt: request.displayPrompt, // Pass displayPrompt if provided
         count: request.count,
         modelConfig: request.modelConfig,
-        createPromptNode: !parentNode,
+        // Use explicit createPromptNode if provided, otherwise check if we have a parent
+        createPromptNode: request.createPromptNode !== undefined ? request.createPromptNode : !parentNode,
         ...(parentNode && {
           parentNode: {
             id: parentNode.id,
@@ -804,46 +807,51 @@ export function IdeaGraphProvider({ children }: Readonly<{ children: ReactNode }
     }
   }, [state.nodes, getNextManualNotePosition, socket, userId]);
 
-  const addPromptNode = useCallback((promptNode: IdeaNode) => {
+  const addPromptNode = useCallback((promptNode: IdeaNode): Promise<void> => {
     console.log('[IdeaGraphContext] addPromptNode called for node:', promptNode.id);
     
-    setState(prevState => {
-      const newNodes = new Map(prevState.nodes);
-      const newRootNodes = [...prevState.rootNodes];
-      
-      // Add the prompt node
-      newNodes.set(promptNode.id, promptNode);
-      
-      // If it has no parent, add to root nodes
-      if (!promptNode.parentId) {
-        newRootNodes.push(promptNode.id);
-      } else {
-        // Update parent's childIds
-        const parent = newNodes.get(promptNode.parentId);
-        if (parent) {
-          if (!parent.childIds.includes(promptNode.id)) {
-            parent.childIds = [...parent.childIds, promptNode.id];
-            newNodes.set(parent.id, parent);
+    return new Promise((resolve) => {
+      setState(prevState => {
+        const newNodes = new Map(prevState.nodes);
+        const newRootNodes = [...prevState.rootNodes];
+        
+        // Add the prompt node
+        newNodes.set(promptNode.id, promptNode);
+        
+        // If it has no parent, add to root nodes
+        if (!promptNode.parentId) {
+          newRootNodes.push(promptNode.id);
+        } else {
+          // Update parent's childIds
+          const parent = newNodes.get(promptNode.parentId);
+          if (parent) {
+            if (!parent.childIds.includes(promptNode.id)) {
+              parent.childIds = [...parent.childIds, promptNode.id];
+              newNodes.set(parent.id, parent);
+            }
           }
         }
-      }
-      
-      // Sync with other users
-      if (socket && userId) {
-        console.log('[IdeaGraphContext] Emitting sync-ideas for new prompt node');
-        socket.emit('sync-ideas', {
-          userId,
-          ideas: [promptNode],
-          parentNodeId: promptNode.parentId || null
-        });
-      }
-      
-      return {
-        ...prevState,
-        nodes: newNodes,
-        rootNodes: newRootNodes,
-        selectedNodeId: promptNode.id,
-      };
+        
+        // Sync with other users
+        if (socket && userId) {
+          console.log('[IdeaGraphContext] Emitting sync-ideas for new prompt node');
+          socket.emit('sync-ideas', {
+            userId,
+            ideas: [promptNode],
+            parentNodeId: promptNode.parentId || null
+          });
+        }
+        
+        // Resolve the promise after state update
+        setTimeout(() => resolve(), 0);
+        
+        return {
+          ...prevState,
+          nodes: newNodes,
+          rootNodes: newRootNodes,
+          selectedNodeId: promptNode.id,
+        };
+      });
     });
   }, [socket, userId]);
 

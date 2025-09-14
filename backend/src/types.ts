@@ -30,6 +30,7 @@ export interface IdeaNode {
 // Idea Generation
 export interface GenerateIdeasRequest {
   prompt: string;
+  displayPrompt?: string; // Optional: what to show in the prompt node (if different from prompt)
   count: number; // Number of ideas to generate (1-10)
   parentNode?: {
     id: string;

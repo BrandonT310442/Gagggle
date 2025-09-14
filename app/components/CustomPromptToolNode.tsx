@@ -234,49 +234,24 @@ export default function CustomPromptToolNode({ data, selected }: NodeProps) {
       const parentNodeId = data.node.parentId;
       
       if (parentNodeId) {
-        // First, create a prompt node to replace this tool node
-        const promptNodeId = `prompt-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-        const promptNode = {
-          id: promptNodeId,
-          content: prompt.trim(),
-          parentId: parentNodeId,
-          childIds: [],
-          metadata: {
-            generatedBy: 'user' as const,
-            isPrompt: true,
-            modelProvider: selectedProvider?.provider,
-            modelName: selectedProvider?.model,
-            modelLabel: selectedProvider?.label,
-            createdAt: new Date().toISOString(),
-          },
-          createdBy: 'user',
-          createdAt: new Date(),
-          updatedAt: new Date(),
-          position: data.node.position,
-        };
-        
-        // Add the prompt node directly to state (this will replace the tool node visually)
-        // We need to access the context to add the node
-        if (data.onCreatePromptNode) {
-          data.onCreatePromptNode(promptNode);
-        }
-        
-        // Include context in the generation prompt
+        // Include context in the generation prompt (for the LLM)
         const contextPrompt = data.node.metadata?.parentContext 
-          ? `Context from previous idea: "${data.node.metadata.parentContext}"\n\nBased on this context, ${prompt.trim()}`
+          ? `Context from previous idea: "${data.node.metadata.parentContext}"\n\nUser prompt: ${prompt.trim()}`
           : prompt.trim();
         
-        // Now generate ideas as children of the prompt node
+        // Generate ideas with a prompt node as intermediate
+        // Pass the display prompt separately so backend creates a clean prompt node
         await generateIdeas({
-          prompt: contextPrompt,
+          prompt: contextPrompt, // Send context-enriched prompt to LLM
+          displayPrompt: prompt.trim(), // This will be shown in the prompt node
           count: parseInt(ideaCount),
           modelConfig: {
             provider: (selectedProvider?.provider || 'groq') as 'groq' | 'cohere' | 'mock',
             model: selectedProvider?.model,
             modelLabel: selectedProvider?.label,
           },
-          createPromptNode: false, // Don't create another prompt node
-          parentNodeId: promptNodeId, // Ideas will be children of the prompt node
+          createPromptNode: true, // Create a prompt node (will use displayPrompt for content)
+          parentNodeId: parentNodeId, // Connect to parent
           position: { 
             x: data.node.position.x,
             y: data.node.position.y + 200 
