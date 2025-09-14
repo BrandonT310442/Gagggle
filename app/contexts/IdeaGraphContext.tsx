@@ -7,11 +7,16 @@ import { ideaGenerationService } from '../services/ideaGeneration';
 
 interface IdeaGraphContextType {
   state: IdeaGraphState;
-  generateIdeas: (request: Omit<GenerateIdeasRequest, 'parentNode'> & { parentNodeId?: string; createPromptNode?: boolean }) => Promise<void>;
+  generateIdeas: (request: Omit<GenerateIdeasRequest, 'parentNode'> & { 
+    parentNodeId?: string; 
+    createPromptNode?: boolean;
+    position?: { x: number; y: number };
+  }) => Promise<void>;
   createEmptyNote: () => void;
   createPromptToolNode: () => void;
   removeNode: (nodeId: string) => void;
   updateNodeContent: (nodeId: string, content: string) => void;
+  updateNodePosition: (nodeId: string, position: { x: number; y: number }) => void;
   selectNode: (nodeId: string | undefined) => void;
   clearGraph: () => void;
   isLoading: boolean;
@@ -151,7 +156,11 @@ export function IdeaGraphProvider({ children }: Readonly<{ children: ReactNode }
     return updatedNodes;
   }, []);
 
-  const generateIdeas = useCallback(async (request: Omit<GenerateIdeasRequest, 'parentNode'> & { parentNodeId?: string }) => {
+  const generateIdeas = useCallback(async (request: Omit<GenerateIdeasRequest, 'parentNode'> & { 
+    parentNodeId?: string;
+    createPromptNode?: boolean;
+    position?: { x: number; y: number };
+  }) => {
     console.log('[IdeaGraphContext] generateIdeas called with request:', request);
     console.log('[IdeaGraphContext] Current socket:', !!socket, 'userId:', userId);
     setIsLoading(true);
@@ -209,11 +218,12 @@ export function IdeaGraphProvider({ children }: Readonly<{ children: ReactNode }
         }
       });
 
-      const positionedNodes = calculateNodePositions(newNodes, newRootNodes);
+      // Don't recalculate positions if we're using custom positioning
+      const finalNodes = request.position ? newNodes : calculateNodePositions(newNodes, newRootNodes);
 
       return {
         ...prevState,
-        nodes: positionedNodes,
+        nodes: finalNodes,
         rootNodes: newRootNodes,
       };
     });
@@ -257,8 +267,26 @@ export function IdeaGraphProvider({ children }: Readonly<{ children: ReactNode }
             }
           });
 
-          // Add real nodes
-          response.ideas.forEach(idea => {
+          // Add real nodes with positioning
+          response.ideas.forEach((idea) => {
+            // If position is provided and this is a prompt node, use the provided position
+            if (request.position && idea.metadata?.isPrompt) {
+              idea.position = request.position;
+            } else if (request.position && idea.parentId) {
+              // Position child nodes relative to the parent position
+              const parentNode = response.ideas.find(n => n.id === idea.parentId) || newNodes.get(idea.parentId);
+              if (parentNode) {
+                const childIndex = response.ideas.filter(n => n.parentId === idea.parentId).indexOf(idea);
+                const childCount = response.ideas.filter(n => n.parentId === idea.parentId).length;
+                const spacing = 300;
+                const startX = (request.position.x || 0) - ((childCount - 1) * spacing / 2);
+                idea.position = {
+                  x: startX + (childIndex * spacing),
+                  y: (request.position.y || 0) + 200
+                };
+              }
+            }
+            
             newNodes.set(idea.id, idea);
 
             if (!idea.parentId) {
@@ -275,7 +303,8 @@ export function IdeaGraphProvider({ children }: Readonly<{ children: ReactNode }
             }
           });
 
-          const positionedNodes = calculateNodePositions(newNodes, newRootNodes);
+          // Only recalculate positions if no position was provided
+          const positionedNodes = request.position ? newNodes : calculateNodePositions(newNodes, newRootNodes);
 
           return {
             ...prevState,
@@ -326,11 +355,10 @@ export function IdeaGraphProvider({ children }: Readonly<{ children: ReactNode }
           }
         });
 
-        const positionedNodes = calculateNodePositions(newNodes, newRootNodes);
-
+        // Don't recalculate positions on error
         return {
           ...prevState,
-          nodes: positionedNodes,
+          nodes: newNodes,
           rootNodes: newRootNodes,
         };
       });
@@ -512,6 +540,29 @@ export function IdeaGraphProvider({ children }: Readonly<{ children: ReactNode }
     });
   }, [socket, userId]);
 
+  const updateNodePosition = useCallback((nodeId: string, position: { x: number; y: number }) => {
+    setState(prevState => {
+      const newNodes = new Map(prevState.nodes);
+      const node = newNodes.get(nodeId);
+      
+      if (node) {
+        const updatedNode = {
+          ...node,
+          position,
+          updatedAt: new Date(),
+        };
+        newNodes.set(nodeId, updatedNode);
+
+        return {
+          ...prevState,
+          nodes: newNodes,
+        };
+      }
+      
+      return prevState;
+    });
+  }, []);
+
   const selectNode = useCallback((nodeId: string | undefined) => {
     setState(prev => ({
       ...prev,
@@ -536,6 +587,7 @@ export function IdeaGraphProvider({ children }: Readonly<{ children: ReactNode }
       createPromptToolNode,
       removeNode,
       updateNodeContent,
+      updateNodePosition,
       selectNode,
       clearGraph,
       isLoading,

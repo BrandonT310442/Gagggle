@@ -37,7 +37,7 @@ export default function NodeGraphFlow({
   onNodeGenerate,
   isPanMode = false,
 }: Readonly<NodeGraphFlowProps>) {
-  const { state, selectNode, isLoading, error } = useIdeaGraph();
+  const { state, selectNode, updateNodePosition, isLoading, error } = useIdeaGraph();
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
 
@@ -51,13 +51,13 @@ export default function NodeGraphFlow({
     const promptToolNodes = Array.from(state.nodes.values()).filter(n => n.metadata?.isPromptTool);
     const ideaNodes = Array.from(state.nodes.values()).filter(n => !n.metadata?.isPrompt && !n.metadata?.isPromptTool);
     
-    // Position prompt nodes at the top
+    // Position prompt nodes - use stored position or default
     promptNodes.forEach((node, index) => {
       flowNodes.push({
         id: node.id,
         type: 'promptNode',
-        position: { 
-          x: 400, // Center horizontally
+        position: node.position || { 
+          x: 400, // Center horizontally as fallback
           y: 50 
         },
         data: { 
@@ -71,7 +71,7 @@ export default function NodeGraphFlow({
     const rootIdeas = ideaNodes.filter(n => !n.parentId || promptNodes.some(p => p.id === n.parentId));
     const childIdeas = ideaNodes.filter(n => n.parentId && !promptNodes.some(p => p.id === n.parentId));
     
-    // First row - root ideas
+    // First row - root ideas (use stored position or calculate)
     rootIdeas.forEach((node, index) => {
       const spacing = 500;
       const startX = -(rootIdeas.length - 1) * spacing / 2;
@@ -79,7 +79,7 @@ export default function NodeGraphFlow({
       flowNodes.push({
         id: node.id,
         type: 'ideaNode',
-        position: { 
+        position: node.position || { 
           x: startX + (index * spacing) + 400,
           y: 250 
         },
@@ -91,7 +91,7 @@ export default function NodeGraphFlow({
       });
     });
 
-    // Second row - child ideas
+    // Second row - child ideas (use stored position or calculate)
     childIdeas.forEach((node, index) => {
       const parentNode = flowNodes.find(n => n.id === node.parentId);
       const parentX = parentNode?.position.x || 400;
@@ -105,7 +105,7 @@ export default function NodeGraphFlow({
       flowNodes.push({
         id: node.id,
         type: 'ideaNode',
-        position: { 
+        position: node.position || { 
           x: startX + (siblingIndex * spacing),
           y: 450 
         },
@@ -167,6 +167,12 @@ export default function NodeGraphFlow({
     }
   }, []);
 
+  // Handle node drag stop to persist position
+  const onNodeDragStop = useCallback((event: React.MouseEvent, node: Node) => {
+    // Update the position in the IdeaGraph state
+    updateNodePosition(node.id, node.position);
+  }, [updateNodePosition]);
+
   if (error) {
     return (
       <div className='absolute top-20 left-8 right-8 z-10 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded'>
@@ -198,6 +204,7 @@ export default function NodeGraphFlow({
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onNodeClick={onNodeClick}
+        onNodeDragStop={onNodeDragStop}
         nodeTypes={nodeTypes}
         connectionMode={ConnectionMode.Loose}
         fitView

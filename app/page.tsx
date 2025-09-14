@@ -60,6 +60,8 @@ function HomePageContent() {
             provider: data.provider as 'groq' | 'cohere' | 'mock',
             model: data.model,
           },
+          // Center the initial prompt
+          position: isFirstPrompt ? { x: 400, y: 100 } : undefined,
         });
 
         // Notify other users that idea generation completed successfully

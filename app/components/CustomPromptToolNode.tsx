@@ -230,7 +230,7 @@ export default function CustomPromptToolNode({ data, selected }: NodeProps) {
     const selectedProvider = llmProviders.find(p => p.value === llmProvider);
 
     try {
-      // Generate ideas with prompt node creation
+      // Generate ideas with prompt node creation at the current tool position
       await generateIdeas({
         prompt: prompt.trim(),
         count: parseInt(ideaCount),
@@ -239,7 +239,8 @@ export default function CustomPromptToolNode({ data, selected }: NodeProps) {
           model: selectedProvider?.model,
           modelLabel: selectedProvider?.label,
         },
-        createPromptNode: true, // This will create the prompt node at the top
+        createPromptNode: true, // This will create the prompt node at the tool's position
+        position: data.node.position, // Pass the current tool node's position
       });
 
       // Remove this tool node after successful submission
@@ -250,7 +251,7 @@ export default function CustomPromptToolNode({ data, selected }: NodeProps) {
       console.error('Failed to generate ideas:', error);
       setIsSubmitting(false);
     }
-  }, [prompt, llmProvider, ideaCount, generateIdeas, removeNode, data.node.id, llmProviders]);
+  }, [prompt, llmProvider, ideaCount, generateIdeas, removeNode, data.node, llmProviders]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
