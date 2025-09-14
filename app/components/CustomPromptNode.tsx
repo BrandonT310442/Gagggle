@@ -83,7 +83,7 @@ export default function CustomPromptNode({ data, selected }: NodeProps) {
       <div
         className={`
           bg-slate-50 box-border flex flex-col gap-6 items-start justify-start p-6 relative
-          cursor-pointer transition-all duration-200 rounded-lg
+          cursor-pointer transition-all duration-200
           border border-dashed border-slate-400
           ${selected ? 'ring-2 ring-blue-500 shadow-lg' : 'shadow-sm'}
           hover:shadow-md
@@ -120,7 +120,13 @@ export default function CustomPromptNode({ data, selected }: NodeProps) {
           </div>
         </div>
       </div>
-      {hasChildren && <Handle type="source" position={Position.Bottom} className="opacity-0" />}
+      {hasChildren && (
+        <Handle
+          type='source'
+          position={Position.Bottom}
+          className='opacity-0'
+        />
+      )}
     </>
   );
 }

@@ -83,11 +83,11 @@ export default function CustomIdeaNode({ data, selected }: NodeProps) {
 
   return (
     <>
-      <Handle type="target" position={Position.Top} className="opacity-0" />
+      <Handle type='target' position={Position.Top} className='opacity-0' />
       <div
         className={`
           bg-white box-border flex flex-col gap-6 items-start justify-start p-6 relative
-          cursor-pointer transition-all duration-200 rounded-lg
+          cursor-pointer transition-all duration-200
           ${selected ? 'ring-2 ring-blue-500 shadow-lg' : ''}
           ${isHovered ? 'shadow-xl' : 'shadow-md'}
         `}
@@ -136,7 +136,13 @@ export default function CustomIdeaNode({ data, selected }: NodeProps) {
           </div>
         </div>
       </div>
-      {hasChildren && <Handle type="source" position={Position.Bottom} className="opacity-0" />}
+      {hasChildren && (
+        <Handle
+          type='source'
+          position={Position.Bottom}
+          className='opacity-0'
+        />
+      )}
     </>
   );
 }
