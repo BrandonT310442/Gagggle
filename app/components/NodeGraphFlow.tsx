@@ -125,14 +125,14 @@ export default function NodeGraphFlow({
             type: 'smoothstep',
             animated: false,
             style: {
-              stroke: '#94a3b8',
-              strokeWidth: 1.5,
+              stroke: '#000000',
+              strokeWidth: 0.75,
             },
             markerEnd: {
               type: MarkerType.ArrowClosed,
-              width: 20,
-              height: 20,
-              color: '#94a3b8',
+              width: 25,
+              height: 25,
+              color: '#000000',
             },
           });
         });
