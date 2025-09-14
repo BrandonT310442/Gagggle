@@ -4,6 +4,8 @@ import { useState, useRef, useEffect } from 'react';
 import { IdeaNode as IdeaNodeType } from '../types/idea';
 import Lottie from 'lottie-react';
 import loadingAnimation from '../../public/gagggleLoading.json';
+import Draggable from 'react-draggable';
+import { useXarrow } from 'react-xarrows';
 
 interface IdeaNodeProps {
   node: IdeaNodeType;
@@ -70,7 +72,9 @@ export default function IdeaNode({
   const [isHovered, setIsHovered] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editContent, setEditContent] = useState(node.content);
+  const nodeRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const updateXarrow = useXarrow();
 
   const isManualNote = node.metadata?.isManualNote;
 
@@ -167,115 +171,123 @@ export default function IdeaNode({
   };
 
   return (
-    <div
-      className={`
-        bg-white box-border flex flex-col gap-6 items-start justify-start p-6 relative
-        cursor-pointer transition-all duration-200
-        ${isSelected ? 'ring-2 ring-blue-500 shadow-lg' : ''}
-        ${isHovered ? 'shadow-xl' : 'shadow-md'}
-      `}
-      onClick={onSelect}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          onSelect?.();
-        }
-      }}
-      tabIndex={0}
-      role="button"
-      aria-label={`Idea node: ${node.content.substring(0, 50)}${node.content.length > 50 ? '...' : ''}`}
-      style={{
-        width: 'fit-content',
-        minWidth: '28rem',
-        maxWidth: '32rem',
-      }}
+    <Draggable 
+      nodeRef={nodeRef}
+      onDrag={updateXarrow}
+      onStop={updateXarrow}
     >
-      <div className='flex flex-col gap-2 items-start justify-start relative shrink-0 w-full'>
-        {/* Model info section */}
-        <div className='box-border flex gap-2 items-center justify-start px-0 py-2 relative shrink-0'>
-          <div className='flex gap-1 items-center justify-start relative shrink-0'>
-            {getModelIcon(node.metadata?.modelName, isManualNote)}
-            <div className="font-['Inter'] text-xs font-normal leading-4 text-black whitespace-nowrap">
-              {formatModelName(
-                node.metadata?.modelName,
-                node.metadata?.modelLabel,
-                isManualNote
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Content section */}
-        <div
-          className="font-['Syne'] text-base font-normal leading-6 text-black"
-          style={{
-            fontFamily: 'Syne, sans-serif',
-            width: 'min-content',
-            minWidth: '100%',
-          }}
-        >
-          {node.metadata?.isLoading && (
-            <div className='flex flex-col items-center justify-center py-4'>
-              <Lottie
-                animationData={loadingAnimation}
-                style={{ width: 120, height: 90 }}
-                loop={true}
-              />
-              <p className='text-xs text-gray-500 mt-2'>Generating idea...</p>
-            </div>
-          )}
-          {!node.metadata?.isLoading && isEditing && (
-            <div className='w-full'>
-              <textarea
-                ref={textareaRef}
-                value={editContent}
-                onChange={(e) => setEditContent(e.target.value)}
-                onKeyDown={handleKeyDown}
-                onBlur={handleSaveEdit}
-                className="font-['Syne'] text-base font-normal leading-6 text-black w-full resize-none border-none outline-none bg-transparent placeholder-gray-500"
-                style={{
-                  fontFamily: 'Syne, sans-serif',
-                  minHeight: '2.5rem',
-                }}
-                placeholder="Enter your idea..."
-              />
-              <div className='flex justify-between items-center mt-2 text-xs text-gray-500'>
-                <span>Enter to save, Esc to cancel</span>
-                <div className='flex gap-2'>
-                  <button
-                    onClick={handleSaveEdit}
-                    className='px-2 py-1 bg-blue-500 text-white rounded text-xs hover:bg-blue-600'
-                  >
-                    Save
-                  </button>
-                  <button
-                    onClick={handleCancelEdit}
-                    className='px-2 py-1 bg-gray-300 text-gray-700 rounded text-xs hover:bg-gray-400'
-                  >
-                    Cancel
-                  </button>
-                </div>
+      <div
+        id={node.id}
+        ref={nodeRef}
+        className={`
+          bg-white box-border flex flex-col gap-6 items-start justify-start p-6 relative
+          cursor-pointer transition-all duration-200
+          ${isSelected ? 'ring-2 ring-blue-500 shadow-lg' : ''}
+          ${isHovered ? 'shadow-xl' : 'shadow-md'}
+        `}
+        onClick={onSelect}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            onSelect?.();
+          }
+        }}
+        tabIndex={0}
+        role="button"
+        aria-label={`Idea node: ${node.content.substring(0, 50)}${node.content.length > 50 ? '...' : ''}`}
+        style={{
+          width: 'fit-content',
+          minWidth: '28rem',
+          maxWidth: '32rem',
+        }}
+      >
+        <div className='flex flex-col gap-2 items-start justify-start relative shrink-0 w-full'>
+          {/* Model info section */}
+          <div className='box-border flex gap-2 items-center justify-start px-0 py-2 relative shrink-0'>
+            <div className='flex gap-1 items-center justify-start relative shrink-0'>
+              {getModelIcon(node.metadata?.modelName, isManualNote)}
+              <div className="font-['Inter'] text-xs font-normal leading-4 text-black whitespace-nowrap">
+                {formatModelName(
+                  node.metadata?.modelName,
+                  node.metadata?.modelLabel,
+                  isManualNote
+                )}
               </div>
             </div>
-          )}
-          {!node.metadata?.isLoading && !isEditing && isManualNote && (
-            <button
-              onClick={handleStartEdit}
-              onKeyDown={handleKeyDownStartEdit}
-              className="cursor-text hover:bg-gray-50 p-2 -m-2 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 w-full text-left"
-              type="button"
-            >
-              {node.content || 'Click to add your idea...'}
-            </button>
-          )}
-          {!node.metadata?.isLoading && !isEditing && !isManualNote && (
-            <div>
-              {node.content}
-            </div>
-          )}
+          </div>
+
+          {/* Content section */}
+          <div
+            className="font-['Syne'] text-base font-normal leading-6 text-black"
+            style={{
+              fontFamily: 'Syne, sans-serif',
+              width: 'min-content',
+              minWidth: '100%',
+            }}
+          >
+            {node.metadata?.isLoading && (
+              <div className='flex flex-col items-center justify-center py-4'>
+                <Lottie
+                  animationData={loadingAnimation}
+                  style={{ width: 120, height: 90 }}
+                  loop={true}
+                />
+                <p className='text-xs text-gray-500 mt-2'>Generating idea...</p>
+              </div>
+            )}
+            {!node.metadata?.isLoading && isEditing && (
+              <div className='w-full'>
+                <textarea
+                  ref={textareaRef}
+                  value={editContent}
+                  onChange={(e) => setEditContent(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  onBlur={handleSaveEdit}
+                  className="font-['Syne'] text-base font-normal leading-6 text-black w-full resize-none border-none outline-none bg-transparent placeholder-gray-500"
+                  style={{
+                    fontFamily: 'Syne, sans-serif',
+                    minHeight: '2.5rem',
+                  }}
+                  placeholder="Enter your idea..."
+                />
+                <div className='flex justify-between items-center mt-2 text-xs text-gray-500'>
+                  <span>Enter to save, Esc to cancel</span>
+                  <div className='flex gap-2'>
+                    <button
+                      onClick={handleSaveEdit}
+                      className='px-2 py-1 bg-blue-500 text-white rounded text-xs hover:bg-blue-600'
+                    >
+                      Save
+                    </button>
+                    <button
+                      onClick={handleCancelEdit}
+                      className='px-2 py-1 bg-gray-300 text-gray-700 rounded text-xs hover:bg-gray-400'
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+            {!node.metadata?.isLoading && !isEditing && isManualNote && (
+              <button
+                onClick={handleStartEdit}
+                onKeyDown={handleKeyDownStartEdit}
+                className="cursor-text hover:bg-gray-50 p-2 -m-2 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 w-full text-left"
+                type="button"
+              >
+                {node.content || 'Click to add your idea...'}
+              </button>
+            )}
+            {!node.metadata?.isLoading && !isEditing && !isManualNote && (
+              <div>
+                {node.content}
+              </div>
+            )}
+          </div>
         </div>
       </div>
-    </div>
+    </Draggable>
   );
 }

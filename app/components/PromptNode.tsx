@@ -1,6 +1,9 @@
 'use client';
 
+import { useRef } from 'react';
 import { IdeaNode } from '../types/idea';
+import Draggable from 'react-draggable';
+import { useXarrow } from 'react-xarrows';
 
 interface PromptNodeProps {
   node: IdeaNode;
@@ -52,6 +55,9 @@ export default function PromptNode({
   isSelected = false,
   onSelect,
 }: Readonly<PromptNodeProps>) {
+  const nodeRef = useRef<HTMLDivElement>(null);
+  const updateXarrow = useXarrow();
+  
   const getModelIcon = (modelName?: string) => {
     if (!modelName) return <MetaIcon />;
 
@@ -87,16 +93,23 @@ export default function PromptNode({
   };
 
   return (
-    <div
-      className={`
-        bg-slate-50 box-border flex flex-col gap-6 items-start justify-start p-6 relative
-        cursor-pointer transition-all duration-200
-        border border-dashed border-slate-400
-        ${isSelected ? 'ring-2 ring-blue-500 shadow-lg' : 'shadow-sm'}
-        hover:shadow-md
-      `}
-      onClick={onSelect}
-      style={{
+    <Draggable 
+      nodeRef={nodeRef}
+      onDrag={updateXarrow}
+      onStop={updateXarrow}
+    >
+      <div
+        id={node.id}
+        ref={nodeRef}
+        className={`
+          bg-slate-50 box-border flex flex-col gap-6 items-start justify-start p-6 relative
+          cursor-pointer transition-all duration-200
+          border border-dashed border-slate-400
+          ${isSelected ? 'ring-2 ring-blue-500 shadow-lg' : 'shadow-sm'}
+          hover:shadow-md
+        `}
+        onClick={onSelect}
+        style={{
         width: 'fit-content',
         minWidth: '300px',
         maxWidth: '450px',
@@ -129,5 +142,6 @@ export default function PromptNode({
         </div>
       </div>
     </div>
+    </Draggable>
   );
 }
