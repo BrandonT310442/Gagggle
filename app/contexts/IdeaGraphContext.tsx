@@ -1046,6 +1046,9 @@ export function IdeaGraphProvider({ children }: Readonly<{ children: ReactNode }
     setIsLoading(true);
     setError(null);
 
+    // Declare merged node variable outside try block for error handling access
+    let mergedNode: IdeaNode;
+
     try {
       // Prepare nodes for merge
       const nodesToMerge = selectedIds
@@ -1062,9 +1065,8 @@ export function IdeaGraphProvider({ children }: Readonly<{ children: ReactNode }
       const maxY = Math.max(...nodesToMerge.map(node => node.position?.y || 0));
       const mergedNodePosition = { x: avgX, y: maxY + 200 };
 
-      // We'll implement the API call in the next step
-      // For now, create a placeholder merged node
-      const mergedNode: IdeaNode = {
+      // Create a placeholder merged node
+      mergedNode = {
         id: `merged-${Date.now()}`,
         content: 'Merging...',
         parentId: undefined, // Merged nodes don't have a single parent
@@ -1084,10 +1086,10 @@ export function IdeaGraphProvider({ children }: Readonly<{ children: ReactNode }
       // Add merged node and update parent nodes to include it as a child
       setState(prev => {
         const newNodes = new Map(prev.nodes);
-        
+
         // Add the merged node
         newNodes.set(mergedNode.id, mergedNode);
-        
+
         // Update each parent node to include the merged node as a child
         selectedIds.forEach(parentId => {
           const parent = newNodes.get(parentId);
@@ -1096,7 +1098,7 @@ export function IdeaGraphProvider({ children }: Readonly<{ children: ReactNode }
             newNodes.set(parentId, parent);
           }
         });
-        
+
         return {
           ...prev,
           nodes: newNodes,
@@ -1110,7 +1112,13 @@ export function IdeaGraphProvider({ children }: Readonly<{ children: ReactNode }
         id: n.id,
         content: n.content
       })));
-      
+
+      // Define model config to use for both API call and metadata
+      const modelConfig = {
+        provider: 'groq' as const, // Default to groq for now
+        model: 'llama-3.3-70b-versatile',
+      };
+
       const mergeResponse = await mergeNodes({
         nodes: nodesToMerge.map(node => ({
           id: node.id,
@@ -1118,10 +1126,7 @@ export function IdeaGraphProvider({ children }: Readonly<{ children: ReactNode }
           metadata: node.metadata,
         })),
         mergePrompt,
-        modelConfig: {
-          provider: 'groq', // Default to groq for now
-          model: 'llama-3.3-70b-versatile',
-        },
+        modelConfig,
       });
       
       console.log('[IdeaGraphContext] Merge API response:', mergeResponse);
@@ -1131,19 +1136,23 @@ export function IdeaGraphProvider({ children }: Readonly<{ children: ReactNode }
         setState(prev => {
           const newNodes = new Map(prev.nodes);
           const placeholderNode = newNodes.get(mergedNode.id);
-          
+
           if (placeholderNode) {
-            // Update the placeholder with actual merged content
+            // Update the placeholder with actual merged content and model info
             placeholderNode.content = mergeResponse.mergedIdea.content;
             placeholderNode.metadata = {
               ...placeholderNode.metadata,
               ...mergeResponse.mergedIdea.metadata,
               isLoading: false,
               generationTime: mergeResponse.generationTime,
+              // Add model info from the merge request for proper icon display
+              modelProvider: modelConfig.provider,
+              modelName: modelConfig.model,
+              modelLabel: `${modelConfig.provider === 'groq' ? 'Groq' : modelConfig.provider} ${modelConfig.model === 'llama-3.3-70b-versatile' ? 'Llama 3.3 70B' : modelConfig.model}`,
             };
             newNodes.set(mergedNode.id, placeholderNode);
           }
-          
+
           return {
             ...prev,
             nodes: newNodes,
@@ -1152,14 +1161,18 @@ export function IdeaGraphProvider({ children }: Readonly<{ children: ReactNode }
 
         // Sync with other users
         if (socket && userId) {
-          const finalMergedNode = state.nodes.get(mergedNode.id);
-          if (finalMergedNode) {
-            socket.emit('sync-ideas', {
-              userId,
-              ideas: [finalMergedNode],
-              parentNodeId: null, // Merged nodes have multiple parents
-            });
-          }
+          // Get the updated node from the new state
+          setState(currentState => {
+            const updatedMergedNode = currentState.nodes.get(mergedNode.id);
+            if (updatedMergedNode) {
+              socket.emit('sync-ideas', {
+                userId,
+                ideas: [updatedMergedNode],
+                parentNodeId: null, // Merged nodes have multiple parents
+              });
+            }
+            return currentState; // Return state unchanged
+          });
         }
       } else {
         // Remove the placeholder on error
