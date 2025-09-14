@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
+import { Socket } from 'socket.io-client';
 import PromptingBox from './components/PromptingBox';
 import FileName from './components/FileName';
 import CursorSharing from './components/CursorSharing';
@@ -15,7 +16,27 @@ import { categorizeNodes, exportGraph } from './services/api';
 function HomePageContent() {
   const [fileName, setFileName] = useState('Untitled Document');
   const [isPanMode, setIsPanMode] = useState(false);
-  const { generateIdeas, state, isLoading } = useIdeaGraph();
+  const { generateIdeas, state, isLoading, setSocket, setUserId } = useIdeaGraph();
+  const [currentSocket, setCurrentSocket] = useState<Socket | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string>('');
+  const socketRef = useRef<Socket | null>(null);
+  const userIdRef = useRef<string>('');
+
+  // Connect socket to IdeaGraphContext when it changes
+  useEffect(() => {
+    console.log('[HomePage] Socket changed, passing to IdeaGraphContext:', !!currentSocket);
+    if (currentSocket !== null) {
+      setSocket(currentSocket);
+    }
+  }, [currentSocket, setSocket]);
+
+  // Update user ID when it changes
+  useEffect(() => {
+    console.log('[HomePage] UserId changed, passing to IdeaGraphContext:', currentUserId);
+    if (currentUserId) {
+      setUserId(currentUserId);
+    }
+  }, [currentUserId, setUserId]);
 
   const handlePromptSubmit = useCallback(
     async (data: {
@@ -23,39 +44,57 @@ function HomePageContent() {
       model?: string;
       ideaCount: string;
       prompt: string;
-    }) => {
+    }, emitIdeaGenerationStart?: () => void, emitIdeaGenerationComplete?: () => void, emitIdeaGenerationError?: () => void) => {
       const isFirstPrompt = state.nodes.size === 0;
 
-      await generateIdeas({
-        prompt: data.prompt,
-        count: parseInt(data.ideaCount),
-        modelConfig: {
-          provider: data.provider as 'groq' | 'cohere' | 'mock',
-          model: data.model,
-        },
-      });
+      try {
+        // Notify other users that idea generation is starting
+        if (emitIdeaGenerationStart) {
+          emitIdeaGenerationStart();
+        }
 
-      // If this was the first prompt, categorize it to generate a title
-      if (isFirstPrompt) {
-        try {
-          const response = await categorizeNodes({
-            nodes: [
-              {
-                id: 'initial-prompt',
-                content: data.prompt,
+        await generateIdeas({
+          prompt: data.prompt,
+          count: parseInt(data.ideaCount),
+          modelConfig: {
+            provider: data.provider as 'groq' | 'cohere' | 'mock',
+            model: data.model,
+          },
+        });
+
+        // Notify other users that idea generation completed successfully
+        if (emitIdeaGenerationComplete) {
+          emitIdeaGenerationComplete();
+        }
+
+        // If this was the first prompt, categorize it to generate a title
+        if (isFirstPrompt) {
+          try {
+            const response = await categorizeNodes({
+              nodes: [
+                {
+                  id: 'initial-prompt',
+                  content: data.prompt,
+                },
+              ],
+              modelConfig: {
+                provider: data.provider,
+                model: data.model,
               },
-            ],
-            modelConfig: {
-              provider: data.provider,
-              model: data.model,
-            },
-          });
+            });
 
-          if (response.success && response.category) {
-            setFileName(response.category);
+            if (response.success && response.category) {
+              setFileName(response.category);
+            }
+          } catch (error) {
+            console.error('Failed to categorize prompt for title:', error);
           }
-        } catch (error) {
-          console.error('Failed to categorize prompt for title:', error);
+        }
+      } catch (error) {
+        console.error('Idea generation failed:', error);
+        // Notify other users that idea generation failed
+        if (emitIdeaGenerationError) {
+          emitIdeaGenerationError();
         }
       }
     },
@@ -117,7 +156,32 @@ function HomePageContent() {
 
   return (
     <CursorSharing>
-      {({ connectedUsers, currentUser, isConnected }) => (
+      {({ 
+        connectedUsers, 
+        currentUser, 
+        isConnected,
+        socket,
+        typingUsers,
+        emitTyping,
+        stopTyping,
+        emitIdeaGenerationStart,
+        emitIdeaGenerationComplete,
+        emitIdeaGenerationError
+      }) => {
+        // Update refs during render (safe) and trigger updates
+        if (socketRef.current !== socket) {
+          console.log('[HomePage] Socket ref updated, scheduling state update:', !!socket);
+          socketRef.current = socket;
+          setTimeout(() => setCurrentSocket(socket), 0);
+        }
+        
+        if (userIdRef.current !== currentUser.userId) {
+          console.log('[HomePage] UserId ref updated, scheduling state update:', currentUser.userId);
+          userIdRef.current = currentUser.userId;
+          setTimeout(() => setCurrentUserId(currentUser.userId), 0);
+        }
+
+        return (
         <div
           className='h-screen w-screen relative overflow-hidden'
           style={{
@@ -148,27 +212,30 @@ function HomePageContent() {
 
           {/* Initial Centered Prompting Box */}
           {!hasNodes && (
-            <div className='absolute inset-0 flex items-center justify-center z-10'>
-              <div className='w-full max-w-2xl px-4'>
+            <div className='absolute inset-0 flex items-center justify-center z-10 pointer-events-none'>
+              <div className='w-full max-w-2xl px-4 pointer-events-auto'>
                 <PromptingBox
-                  onSubmit={handlePromptSubmit}
+                  onSubmit={(data) => handlePromptSubmit(data, emitIdeaGenerationStart, emitIdeaGenerationComplete, emitIdeaGenerationError)}
                   isLoading={isLoading}
+                  typingUsers={typingUsers}
+                  currentUserId={currentUser.userId}
+                  onTyping={emitTyping}
+                  onStopTyping={stopTyping}
+                  connectedUsers={connectedUsers}
                 />
               </div>
             </div>
           )}
 
-          {/* Whiteboard with NodeGraph */}
-          {hasNodes && (
-            <NodeGraph
-              onNodeGenerate={handleNodeGenerate}
-              isPanMode={isPanMode}
-            />
-          )}
+          {/* Always render NodeGraph for panning, even without nodes */}
+          <NodeGraph
+            onNodeGenerate={handleNodeGenerate}
+            isPanMode={isPanMode}
+          />
 
           {/* Loading state for initial generation */}
           {isLoading && !hasNodes && (
-            <div className='absolute inset-0 flex items-center justify-center z-10'>
+            <div className='absolute inset-0 flex items-center justify-center z-10 pointer-events-none'>
               <div className='flex flex-col items-center justify-center'>
                 <Lottie
                   animationData={loadingAnimation}
@@ -182,7 +249,8 @@ function HomePageContent() {
             </div>
           )}
         </div>
-      )}
+        );
+      }}
     </CursorSharing>
   );
 }

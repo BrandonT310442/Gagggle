@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 // TypeScript interfaces
 interface DropdownOption {
@@ -17,6 +17,12 @@ interface DropdownProps {
   placeholder?: string;
 }
 
+interface TypingUser {
+  userId: string;
+  text: string;
+  timestamp: number;
+}
+
 interface PromptingBoxProps {
   onSubmit?: (data: {
     provider: string;
@@ -26,6 +32,12 @@ interface PromptingBoxProps {
     prompt: string;
   }) => void;
   isLoading?: boolean;
+  // Real-time collaboration props
+  typingUsers?: Map<string, TypingUser>;
+  currentUserId?: string;
+  onTyping?: (text: string) => void;
+  onStopTyping?: () => void;
+  connectedUsers?: { userId: string; color: string }[];
 }
 
 // SVG Icons as React components - matching Figma design exactly
@@ -176,10 +188,17 @@ function Dropdown({ value, options, onChange, placeholder }: DropdownProps) {
 export default function PromptingBox({
   onSubmit,
   isLoading = false,
+  typingUsers = new Map(),
+  currentUserId = '',
+  onTyping,
+  onStopTyping,
+  connectedUsers = [],
 }: PromptingBoxProps) {
   const [llmProvider, setLlmProvider] = useState('groq');
   const [ideaCount, setIdeaCount] = useState('3');
   const [prompt, setPrompt] = useState('');
+  const [typingTimeout, setTypingTimeout] = useState<NodeJS.Timeout | null>(null);
+  const [collaborativeText, setCollaborativeText] = useState('');
 
   const llmProviders = [
     {
@@ -255,6 +274,82 @@ export default function PromptingBox({
     }
   };
 
+  const handleTyping = (newText: string) => {
+    setPrompt(newText);
+    
+    // Emit typing event for real-time collaboration
+    if (onTyping) {
+      console.log('Emitting typing event:', newText.substring(0, 30));
+      onTyping(newText);
+    }
+
+    // Clear existing timeout
+    if (typingTimeout) {
+      clearTimeout(typingTimeout);
+    }
+
+    // Set new timeout to stop typing after 3 seconds of inactivity
+    const timeout = setTimeout(() => {
+      if (onStopTyping) {
+        console.log('Emitting stop typing event');
+        onStopTyping();
+      }
+    }, 3000);
+
+    setTypingTimeout(timeout);
+  };
+
+  // Sync collaborative text from other users
+  useEffect(() => {
+    console.log('PromptingBox: typingUsers updated:', typingUsers.size, 'currentUserId:', currentUserId);
+    
+    // Get all other users (not current user) with text
+    const otherUsers = Array.from(typingUsers.values()).filter(
+      user => user.userId !== currentUserId
+    );
+    
+    console.log('PromptingBox: other users with text:', otherUsers.length);
+    
+    if (otherUsers.length > 0) {
+      // Use the most recent text from another user
+      const mostRecent = otherUsers.reduce((latest, current) => 
+        current.timestamp > latest.timestamp ? current : latest, otherUsers[0]
+      );
+      console.log('PromptingBox: setting collaborative text:', mostRecent.text.substring(0, 30));
+      setCollaborativeText(mostRecent.text);
+    } else {
+      // No other users with text - clear collaborative text
+      console.log('PromptingBox: no other users with text, clearing collaborative text');
+      setCollaborativeText('');
+    }
+  }, [typingUsers, currentUserId]);
+
+  // Get the color for the collaborating user
+  const getCollaboratorColor = () => {
+    const otherUsers = Array.from(typingUsers.values()).filter(
+      user => user.userId !== currentUserId
+    );
+    
+    if (otherUsers.length > 0) {
+      const mostRecent = otherUsers.reduce((latest, current) => 
+        current.timestamp > latest.timestamp ? current : latest, otherUsers[0]
+      );
+      
+      // Find the connected user's color
+      const connectedUser = connectedUsers.find(user => user.userId === mostRecent.userId);
+      return connectedUser?.color || '#3B82F6'; // Default to blue if color not found
+    }
+    
+    return '#3B82F6';
+  };
+
+  const collaboratorColor = getCollaboratorColor();
+
+  // Get the display text - show own prompt, with collaborative preview overlay
+  const displayText = prompt;
+
+  // Note: otherTypingUsers removed as it's no longer needed with the new UI
+
   return (
     <div className='bg-slate-50 box-border flex flex-col gap-6 items-start justify-start p-6 relative w-full border border-dashed border-slate-400'>
       {/* Content container */}
@@ -275,20 +370,60 @@ export default function PromptingBox({
           />
         </div>
 
-        {/* Prompt Input */}
+        {/* Prompt Input Container */}
         <div className='min-w-full relative shrink-0'>
-          <textarea
-            value={prompt}
-            onChange={(e) => setPrompt(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder='Write a prompt to start ideating....'
-            className='w-full min-h-[60px] p-0 border-0 bg-transparent resize-none focus:outline-none font-syne text-base font-semibold leading-6 text-black placeholder:text-slate-500'
-            style={{
-              fontFamily: 'Syne, sans-serif',
-              width: 'min-content',
-              minWidth: '100%',
-            }}
-          />
+          {/* User's own text input - Top Row */}
+          <div className='mb-2'>
+            <textarea
+              value={displayText}
+              onChange={(e) => handleTyping(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder='Write a prompt to start ideating....'
+              className='w-full min-h-[60px] p-0 border-0 bg-transparent resize-none focus:outline-none font-syne text-base font-semibold leading-6 text-black placeholder:text-slate-500'
+              style={{
+                fontFamily: 'Syne, sans-serif',
+                width: 'min-content',
+                minWidth: '100%',
+              }}
+            />
+          </div>
+          
+          {/* Collaborator's text - Bottom Row (highlighted in their color) */}
+          {collaborativeText && collaborativeText !== prompt && (
+            <div 
+              className='p-3 rounded border-l-4 mb-2'
+              style={{
+                backgroundColor: `${collaboratorColor}10`, // Very light background
+                borderLeftColor: collaboratorColor,
+                borderLeftWidth: '4px',
+              }}
+            >
+              <div className='flex items-center gap-2 mb-1'>
+                <div 
+                  className='w-2 h-2 rounded-full animate-pulse'
+                  style={{ backgroundColor: collaboratorColor }}
+                />
+                <span 
+                  className='text-xs font-medium opacity-75'
+                  style={{ color: collaboratorColor }}
+                >
+                  Collaborator is typing:
+                </span>
+              </div>
+              <div 
+                className='font-syne text-base font-semibold leading-6'
+                style={{
+                  fontFamily: 'Syne, sans-serif',
+                  whiteSpace: 'pre-wrap',
+                  wordWrap: 'break-word',
+                  color: collaboratorColor,
+                  opacity: 0.9,
+                }}
+              >
+                {collaborativeText}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

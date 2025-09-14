@@ -99,16 +99,27 @@ export default function NodeGraph({
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     const shouldPan = isPanMode || e.ctrlKey || e.metaKey;
+    
+    console.log('NodeGraph mouseDown:', {
+      isPanMode,
+      ctrlKey: e.ctrlKey,
+      metaKey: e.metaKey,
+      shouldPan,
+      target: e.target
+    });
 
     if (shouldPan) {
+      console.log('Starting pan mode');
       setIsDragging(true);
       setDragStart({ x: e.clientX, y: e.clientY });
       setPanStart(pan);
       e.preventDefault();
+      e.stopPropagation();
     }
   }, [isPanMode, pan]);
 
-  const handleMouseMove = useCallback((e: React.MouseEvent) => {
+  // Global mouse move handler for dragging
+  const handleGlobalMouseMove = useCallback((e: MouseEvent) => {
     if (isDragging) {
       const deltaX = e.clientX - dragStart.x;
       const deltaY = e.clientY - dragStart.y;
@@ -120,9 +131,13 @@ export default function NodeGraph({
     }
   }, [isDragging, dragStart, panStart]);
 
-  const handleMouseUp = useCallback(() => {
-    setIsDragging(false);
-  }, []);
+  // Global mouse up handler
+  const handleGlobalMouseUp = useCallback(() => {
+    if (isDragging) {
+      console.log('Ending pan mode');
+      setIsDragging(false);
+    }
+  }, [isDragging]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -132,20 +147,38 @@ export default function NodeGraph({
     }
   }, [handleWheel]);
 
-  if (state.nodes.size === 0) {
-    return null; // Return nothing when no nodes, let parent handle empty state
-  }
+  // Add global mouse event listeners for dragging
+  useEffect(() => {
+    if (isDragging) {
+      document.addEventListener('mousemove', handleGlobalMouseMove);
+      document.addEventListener('mouseup', handleGlobalMouseUp);
+      
+      return () => {
+        document.removeEventListener('mousemove', handleGlobalMouseMove);
+        document.removeEventListener('mouseup', handleGlobalMouseUp);
+      };
+    }
+  }, [isDragging, handleGlobalMouseMove, handleGlobalMouseUp]);
 
+  // Always render the canvas for panning, even if no nodes
+  const hasNodes = state.nodes.size > 0;
+
+  // Calculate cursor style
+  const getCursorStyle = () => {
+    if (isDragging) return 'grabbing';
+    if (isPanMode) return 'grab';
+    return 'auto';
+  };
 
   return (
+    // Interactive canvas container for panning and zooming functionality
     <div
       ref={containerRef}
       className='absolute inset-0 overflow-hidden'
-      style={{ cursor: isDragging ? 'grabbing' : (isPanMode ? 'grab' : 'default') }}
+      style={{ 
+        cursor: getCursorStyle()
+      }}
       onMouseDown={handleMouseDown}
-      onMouseMove={handleMouseMove}
-      onMouseUp={handleMouseUp}
-      onMouseLeave={handleMouseUp}
     >
       {error && (
         <div className='absolute top-20 left-8 right-8 z-10 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded'>
@@ -177,41 +210,43 @@ export default function NodeGraph({
           minHeight: '100vh'
         }}
       >
-        {/* Simple approach: render all prompt nodes first, then all idea nodes */}
-        <div className='mb-12'>
-          {/* All Prompt Nodes - Centered */}
-          {Array.from(state.nodes.values())
-            .filter(node => node.metadata?.isPrompt)
-            .map((promptNode) => (
-              <div key={promptNode.id} className='flex justify-center mb-8'>
-                <PromptNode
-                  node={promptNode}
-                  isSelected={state.selectedNodeId === promptNode.id}
-                  onSelect={() => selectNode(promptNode.id)}
-                />
-              </div>
-            ))}
-
-          {/* All Idea Nodes - Horizontal row */}
-          <div className='flex justify-center'>
-            <div
-              className='flex items-start gap-6'
-              style={{ minWidth: 'fit-content' }}
-            >
-              {Array.from(state.nodes.values())
-                .filter(node => !node.metadata?.isPrompt)
-                .map((node) => (
-                  <IdeaNode
-                    key={node.id}
-                    node={node}
-                    isSelected={state.selectedNodeId === node.id}
-                    onSelect={() => selectNode(node.id)}
-                    onGenerateChildren={() => onNodeGenerate?.(node.id)}
+        {/* Only show nodes if they exist */}
+        {hasNodes && (
+          <div className='mb-12'>
+            {/* All Prompt Nodes - Centered */}
+            {Array.from(state.nodes.values())
+              .filter(node => node.metadata?.isPrompt)
+              .map((promptNode) => (
+                <div key={promptNode.id} className='flex justify-center mb-8'>
+                  <PromptNode
+                    node={promptNode}
+                    isSelected={state.selectedNodeId === promptNode.id}
+                    onSelect={() => selectNode(promptNode.id)}
                   />
-                ))}
+                </div>
+              ))}
+
+            {/* All Idea Nodes - Horizontal row */}
+            <div className='flex justify-center'>
+              <div
+                className='flex items-start gap-6'
+                style={{ minWidth: 'fit-content' }}
+              >
+                {Array.from(state.nodes.values())
+                  .filter(node => !node.metadata?.isPrompt)
+                  .map((node) => (
+                    <IdeaNode
+                      key={node.id}
+                      node={node}
+                      isSelected={state.selectedNodeId === node.id}
+                      onSelect={() => selectNode(node.id)}
+                      onGenerateChildren={() => onNodeGenerate?.(node.id)}
+                    />
+                  ))}
+              </div>
             </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );

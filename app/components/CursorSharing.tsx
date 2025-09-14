@@ -16,15 +16,30 @@ interface ConnectedUser {
   color: string;
 }
 
+interface TypingUser {
+  userId: string;
+  text: string;
+  timestamp: number;
+}
+
 interface CursorSharingProps {
   children: (data: {
     connectedUsers: ConnectedUser[];
     currentUser: ConnectedUser;
     isConnected: boolean;
+    socket: Socket | null;
+    typingUsers: Map<string, TypingUser>;
+    emitTyping: (text: string) => void;
+    stopTyping: () => void;
+    emitIdeaGenerationStart: () => void;
+    emitIdeaGenerationComplete: () => void;
+    emitIdeaGenerationError: () => void;
+    emitSyncIdeas: (ideas: any[]) => void;
+    emitSyncGraphState: (graphState: any) => void;
   }) => React.ReactNode;
 }
 
-export default function CursorSharing({ children }: CursorSharingProps) {
+export default function CursorSharing({ children }: Readonly<CursorSharingProps>) {
   const [socket, setSocket] = useState<Socket | null>(null);
   const [cursors, setCursors] = useState<Record<string, CursorData>>({});
   const [isConnected, setIsConnected] = useState(false);
@@ -33,6 +48,7 @@ export default function CursorSharing({ children }: CursorSharingProps) {
   const [userColor] = useState(() => `hsl(${Math.random() * 360}, 70%, 50%)`);
   const [myPosition, setMyPosition] = useState({ x: 0, y: 0 });
   const [isClient, setIsClient] = useState(false);
+  const [typingUsers, setTypingUsers] = useState<Map<string, TypingUser>>(new Map());
 
   useEffect(() => {
     setIsClient(true);
@@ -60,7 +76,7 @@ export default function CursorSharing({ children }: CursorSharingProps) {
 
     newSocket.on('connect', () => {
       setIsConnected(true);
-      console.log('Connected to room:', roomId);
+      console.log('[CursorSharing] Connected to room:', roomId, 'with userId:', userId);
     });
 
     newSocket.on('disconnect', () => setIsConnected(false));
@@ -74,6 +90,57 @@ export default function CursorSharing({ children }: CursorSharingProps) {
         const { [leftUserId]: _, ...rest } = prev;
         return rest;
       });
+      // Also remove from typing users
+      setTypingUsers(prev => {
+        const newMap = new Map(prev);
+        newMap.delete(leftUserId);
+        return newMap;
+      });
+    });
+
+    // Typing collaboration events
+    newSocket.on('user-typing', (data: { userId: string; text: string }) => {
+      console.log('CursorSharing: Received typing event from userId:', data.userId, 'text:', data.text.substring(0, 30));
+      setTypingUsers(prev => {
+        const newMap = new Map(prev);
+        
+        if (data.text.trim() === '') {
+          // If the text is empty, remove the user from the map
+          console.log('CursorSharing: Removing user from typingUsers (empty text):', data.userId);
+          newMap.delete(data.userId);
+        } else {
+          // If there's text, add/update the user
+          newMap.set(data.userId, {
+            userId: data.userId,
+            text: data.text,
+            timestamp: Date.now()
+          });
+        }
+        
+        console.log('CursorSharing: Updated typingUsers map size:', newMap.size);
+        return newMap;
+      });
+    });
+
+    newSocket.on('user-stop-typing', (data: { userId: string }) => {
+      console.log('CursorSharing: Received stop typing event from userId:', data.userId);
+      // Don't remove the user from typingUsers on stop-typing
+      // They should only be removed when their text becomes empty
+      // This way their text persists even when they pause typing
+    });
+
+    // Handle idea generation status events
+    newSocket.on('idea-generation-start', (data: { userId: string }) => {
+      console.log('CursorSharing: Another user started idea generation:', data.userId);
+      // Could show a loading indicator for other users
+    });
+
+    newSocket.on('idea-generation-complete', (data: { userId: string }) => {
+      console.log('CursorSharing: Another user completed idea generation:', data.userId);
+    });
+
+    newSocket.on('idea-generation-error', (data: { userId: string }) => {
+      console.log('CursorSharing: Another user had idea generation error:', data.userId);
     });
 
     setSocket(newSocket);
@@ -82,20 +149,77 @@ export default function CursorSharing({ children }: CursorSharingProps) {
     };
   }, [roomId, userId]);
 
-  const handleMouseMove = (e: React.MouseEvent) => {
-    const x = e.clientX;
-    const y = e.clientY;
+  // Use global mouse move listener instead of onMouseMove prop to avoid interfering with child components
+  useEffect(() => {
+    const handleGlobalMouseMove = (e: MouseEvent) => {
+      const x = e.clientX;
+      const y = e.clientY;
 
-    setMyPosition({ x, y });
+      setMyPosition({ x, y });
 
+      if (socket && isConnected) {
+        const data = {
+          userId,
+          x,
+          y,
+          color: userColor,
+        };
+        socket.emit('cursor-move', data);
+      }
+    };
+
+    if (isClient) {
+      document.addEventListener('mousemove', handleGlobalMouseMove, { passive: true });
+      return () => document.removeEventListener('mousemove', handleGlobalMouseMove);
+    }
+  }, [isClient, socket, isConnected, userId, userColor]);
+
+  // Emit functions for collaboration
+  const emitTyping = (text: string) => {
     if (socket && isConnected) {
-      const data = {
-        userId,
-        x,
-        y,
-        color: userColor,
-      };
-      socket.emit('cursor-move', data);
+      console.log('CursorSharing: Emitting typing:', text.substring(0, 30), 'userId:', userId);
+      socket.emit('user-typing', { userId, text });
+    } else {
+      console.log('CursorSharing: Cannot emit typing - socket:', !!socket, 'connected:', isConnected);
+    }
+  };
+
+  const stopTyping = () => {
+    if (socket && isConnected) {
+      console.log('Emitting stop typing');
+      socket.emit('user-stop-typing', { userId });
+    }
+  };
+
+  const emitIdeaGenerationStart = () => {
+    if (socket && isConnected) {
+      socket.emit('idea-generation-start', { userId });
+    }
+  };
+
+  const emitIdeaGenerationComplete = () => {
+    if (socket && isConnected) {
+      socket.emit('idea-generation-complete', { userId });
+    }
+  };
+
+  const emitIdeaGenerationError = () => {
+    if (socket && isConnected) {
+      socket.emit('idea-generation-error', { userId });
+    }
+  };
+
+  const emitSyncIdeas = (ideas: any[]) => {
+    if (socket && isConnected) {
+      console.log('CursorSharing: Emitting sync-ideas:', ideas.length, 'ideas');
+      socket.emit('sync-ideas', { userId, ideas });
+    }
+  };
+
+  const emitSyncGraphState = (graphState: any) => {
+    if (socket && isConnected) {
+      console.log('CursorSharing: Emitting sync-graph-state');
+      socket.emit('sync-graph-state', { userId, graphState });
     }
   };
 
@@ -111,7 +235,6 @@ export default function CursorSharing({ children }: CursorSharingProps) {
   return (
     <div
       className='relative cursor-none'
-      onMouseMove={handleMouseMove}
       role='application'
     >
       {/* <RoomInfo
@@ -160,7 +283,16 @@ export default function CursorSharing({ children }: CursorSharingProps) {
           userId,
           color: userColor
         },
-        isConnected
+        isConnected,
+        socket,
+        typingUsers,
+        emitTyping,
+        stopTyping,
+        emitIdeaGenerationStart,
+        emitIdeaGenerationComplete,
+        emitIdeaGenerationError,
+        emitSyncIdeas,
+        emitSyncGraphState
       })}
     </div>
   );
