@@ -53,8 +53,11 @@ export function IdeaGraphProvider({ children }: Readonly<{ children: ReactNode }
           } else {
             const parent = newNodes.get(idea.parentId);
             if (parent) {
-              parent.childIds = [...parent.childIds, idea.id];
-              newNodes.set(parent.id, parent);
+              // Only add child ID if it doesn't already exist
+              if (!parent.childIds.includes(idea.id)) {
+                parent.childIds = [...parent.childIds, idea.id];
+                newNodes.set(parent.id, parent);
+              }
             }
           }
         });
@@ -195,8 +198,11 @@ export function IdeaGraphProvider({ children }: Readonly<{ children: ReactNode }
         } else {
           const parent = newNodes.get(node.parentId);
           if (parent) {
-            parent.childIds = [...parent.childIds, node.id];
-            newNodes.set(parent.id, parent);
+            // Only add child ID if it doesn't already exist
+            if (!parent.childIds.includes(node.id)) {
+              parent.childIds = [...parent.childIds, node.id];
+              newNodes.set(parent.id, parent);
+            }
           }
         }
       });
@@ -258,8 +264,11 @@ export function IdeaGraphProvider({ children }: Readonly<{ children: ReactNode }
             } else {
               const parent = newNodes.get(idea.parentId);
               if (parent) {
-                parent.childIds = [...parent.childIds, idea.id];
-                newNodes.set(parent.id, parent);
+                // Only add child ID if it doesn't already exist
+                if (!parent.childIds.includes(idea.id)) {
+                  parent.childIds = [...parent.childIds, idea.id];
+                  newNodes.set(parent.id, parent);
+                }
               }
             }
           });

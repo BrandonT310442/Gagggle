@@ -117,7 +117,9 @@ export default function NodeGraphFlow({
     // Create edges for parent-child relationships
     Array.from(state.nodes.values()).forEach(parentNode => {
       if (parentNode.childIds && parentNode.childIds.length > 0) {
-        parentNode.childIds.forEach(childId => {
+        // Deduplicate child IDs to prevent duplicate edge keys
+        const uniqueChildIds = Array.from(new Set(parentNode.childIds));
+        uniqueChildIds.forEach(childId => {
           flowEdges.push({
             id: `edge-${parentNode.id}-${childId}`,
             source: parentNode.id,
