@@ -13,6 +13,7 @@ interface IdeaGraphContextType {
     position?: { x: number; y: number };
   }) => Promise<void>;
   createEmptyNote: () => void;
+  createComment: () => void;
   createPromptToolNode: () => void;
   removeNode: (nodeId: string) => void;
   updateNodeContent: (nodeId: string, content: string) => void;
@@ -56,7 +57,10 @@ export function IdeaGraphProvider({ children }: Readonly<{ children: ReactNode }
           newNodes.set(idea.id, idea);
 
           if (!idea.parentId) {
-            newRootNodes.push(idea.id);
+            // Only add to root nodes if it doesn't already exist
+            if (!newRootNodes.includes(idea.id)) {
+              newRootNodes.push(idea.id);
+            }
           } else {
             const parent = newNodes.get(idea.parentId);
             if (parent) {
@@ -82,12 +86,49 @@ export function IdeaGraphProvider({ children }: Readonly<{ children: ReactNode }
       // Graph state sync handler - currently not implemented as we sync individual ideas instead
     };
 
+    const handleRemoveNode = (data: { userId: string; nodeId: string }) => {
+      console.log('[IdeaGraphContext] Received remove-node from user:', data.userId, 'nodeId:', data.nodeId);
+      
+      // Don't process our own removal events
+      if (data.userId === userId) return;
+      
+      setState(prevState => {
+        const newNodes = new Map(prevState.nodes);
+        const newRootNodes = [...prevState.rootNodes];
+        
+        // Remove the node
+        newNodes.delete(data.nodeId);
+        
+        // Remove from root nodes if present
+        const rootIndex = newRootNodes.indexOf(data.nodeId);
+        if (rootIndex > -1) {
+          newRootNodes.splice(rootIndex, 1);
+        }
+        
+        // Remove from any parent's childIds
+        newNodes.forEach(node => {
+          if (node.childIds.includes(data.nodeId)) {
+            node.childIds = node.childIds.filter(id => id !== data.nodeId);
+          }
+        });
+        
+        return {
+          ...prevState,
+          nodes: newNodes,
+          rootNodes: newRootNodes,
+          selectedNodeId: prevState.selectedNodeId === data.nodeId ? undefined : prevState.selectedNodeId,
+        };
+      });
+    };
+
     socket.on('sync-ideas', handleSyncIdeas);
     socket.on('sync-graph-state', handleSyncGraphState);
+    socket.on('remove-node', handleRemoveNode);
 
     return () => {
       socket.off('sync-ideas', handleSyncIdeas);
       socket.off('sync-graph-state', handleSyncGraphState);
+      socket.off('remove-node', handleRemoveNode);
     };
   }, [socket]);
 
@@ -96,7 +137,12 @@ export function IdeaGraphProvider({ children }: Readonly<{ children: ReactNode }
     // Count existing manual notes to determine position index
     const manualNotes = Array.from(existingNodes.values())
       .filter(node => node.metadata?.isManualNote)
-      .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime()); // Sort by creation time for consistency
+      .sort((a, b) => {
+        // Safe date comparison - handle both Date objects and strings
+        const dateA = a.createdAt instanceof Date ? a.createdAt.getTime() : new Date(a.createdAt).getTime();
+        const dateB = b.createdAt instanceof Date ? b.createdAt.getTime() : new Date(b.createdAt).getTime();
+        return dateA - dateB;
+      }); // Sort by creation time for consistency
 
     const noteIndex = manualNotes.length;
     
@@ -110,6 +156,37 @@ export function IdeaGraphProvider({ children }: Readonly<{ children: ReactNode }
     // Calculate position based on index
     const col = noteIndex % gridCols;
     const row = Math.floor(noteIndex / gridCols);
+    
+    const x = startX + (col * cellWidth);
+    const y = startY + (row * cellHeight);
+    
+    return { x, y };
+  }, []);
+
+  // Deterministic positioning for comments to ensure consistency across collaborators
+  const getNextCommentPosition = useCallback((existingNodes: Map<string, IdeaNode>) => {
+    // Count existing comments to determine position index
+    const comments = Array.from(existingNodes.values())
+      .filter(node => node.metadata?.isComment)
+      .sort((a, b) => {
+        // Safe date comparison - handle both Date objects and strings
+        const dateA = a.createdAt instanceof Date ? a.createdAt.getTime() : new Date(a.createdAt).getTime();
+        const dateB = b.createdAt instanceof Date ? b.createdAt.getTime() : new Date(b.createdAt).getTime();
+        return dateA - dateB;
+      }); // Sort by creation time for consistency
+
+    const commentIndex = comments.length;
+    
+    // Define a simple grid pattern for comments - separate from manual notes
+    const gridCols = 4;
+    const cellWidth = 350;
+    const cellHeight = 200;
+    const startX = 100;
+    const startY = 500; // Position comments below manual notes
+    
+    // Calculate position based on index
+    const col = commentIndex % gridCols;
+    const row = Math.floor(commentIndex / gridCols);
     
     const x = startX + (col * cellWidth);
     const y = startY + (row * cellHeight);
@@ -374,11 +451,14 @@ export function IdeaGraphProvider({ children }: Readonly<{ children: ReactNode }
         // Emit sync event to other users after successfully adding ideas
         console.log('[IdeaGraphContext] About to emit sync-ideas. Socket exists:', !!socket, 'UserId exists:', !!userId);
         if (socket && userId) {
-          console.log('[IdeaGraphContext] Emitting sync-ideas for', response.ideas.length, 'ideas to other users');
-          console.log('[IdeaGraphContext] Ideas being synced:', response.ideas.map(idea => ({ id: idea.id, content: idea.content.substring(0, 50) })));
+          // All nodes from the response are already included (both prompt and idea nodes)
+          const nodesToSync = [...response.ideas];
+          
+          console.log('[IdeaGraphContext] Emitting sync-ideas for', nodesToSync.length, 'nodes to other users');
+          console.log('[IdeaGraphContext] Nodes being synced:', nodesToSync.map(node => ({ id: node.id, content: node.content.substring(0, 50), isPrompt: node.metadata?.isPrompt })));
           socket.emit('sync-ideas', { 
             userId, 
-            ideas: response.ideas,
+            ideas: nodesToSync,
             parentNodeId: parentNode?.id || null 
           });
           console.log('[IdeaGraphContext] sync-ideas event emitted successfully');
@@ -429,12 +509,12 @@ export function IdeaGraphProvider({ children }: Readonly<{ children: ReactNode }
     console.log('[IdeaGraphContext] createEmptyNote called');
     
     // Generate unique ID for the new note
-    const noteId = `note-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const noteId = `note-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
     
     // Find the next position in the deterministic grid
     const position = getNextManualNotePosition(state.nodes);
     
-    // Create the empty note node
+    // Create the empty note node as a draft (not shared until saved)
     const emptyNote: IdeaNode = {
       id: noteId,
       content: '', // Empty content for manual editing
@@ -443,6 +523,7 @@ export function IdeaGraphProvider({ children }: Readonly<{ children: ReactNode }
       metadata: {
         generatedBy: 'user',
         isManualNote: true,
+        isDraft: true, // Mark as draft - won't be shared until saved
         createdAt: new Date().toISOString(),
       },
       createdBy: userId || 'unknown',
@@ -467,16 +548,54 @@ export function IdeaGraphProvider({ children }: Readonly<{ children: ReactNode }
       };
     });
 
-    // Sync with other users
-    if (socket && userId) {
-      console.log('[IdeaGraphContext] Emitting sync-ideas for new manual note');
-      socket.emit('sync-ideas', {
-        userId,
-        ideas: [emptyNote],
-        parentNodeId: null
-      });
-    }
+    // Note: Draft nodes are not synced immediately. They will be synced when saved.
   }, [state.nodes, getNextManualNotePosition, socket, userId]);
+
+  const createComment = useCallback(() => {
+    console.log('[IdeaGraphContext] createComment called');
+    
+    // Generate unique ID for the new comment
+    const commentId = `comment-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
+    
+    // Find the next position in the deterministic grid
+    const position = getNextCommentPosition(state.nodes);
+    
+    // Create the empty comment node as a draft (not shared until saved)
+    const emptyComment: IdeaNode = {
+      id: commentId,
+      content: '', // Empty content for manual editing
+      parentId: undefined, // Comments are root-level
+      childIds: [],
+      metadata: {
+        generatedBy: 'user',
+        isComment: true,
+        isDraft: true, // Mark as draft - won't be shared until saved
+        createdAt: new Date().toISOString(),
+      },
+      createdBy: userId || 'unknown',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      position: position,
+    };
+
+    // Add the comment to the state
+    setState(prevState => {
+      const newNodes = new Map(prevState.nodes);
+      const newRootNodes = [...prevState.rootNodes];
+
+      newNodes.set(emptyComment.id, emptyComment);
+      newRootNodes.push(emptyComment.id);
+
+      return {
+        ...prevState,
+        nodes: newNodes,
+        rootNodes: newRootNodes,
+        selectedNodeId: emptyComment.id, // Auto-select the new comment
+      };
+    });
+
+    // Note: Draft nodes are not synced immediately. They will be synced when saved.
+  }, [state.nodes, getNextCommentPosition, socket, userId]);
 
   const createPromptToolNode = useCallback(() => {
     console.log('[IdeaGraphContext] createPromptToolNode called');
@@ -538,6 +657,9 @@ export function IdeaGraphProvider({ children }: Readonly<{ children: ReactNode }
       const newNodes = new Map(prevState.nodes);
       const newRootNodes = [...prevState.rootNodes];
       
+      // Get the node before removing it (for sync purposes)
+      const nodeToRemove = newNodes.get(nodeId);
+      
       // Remove the node
       newNodes.delete(nodeId);
       
@@ -553,6 +675,15 @@ export function IdeaGraphProvider({ children }: Readonly<{ children: ReactNode }
           node.childIds = node.childIds.filter(id => id !== nodeId);
         }
       });
+
+      // Sync node removal with other users (but not for draft nodes)
+      if (socket && userId && nodeToRemove && !nodeToRemove.metadata?.isDraft) {
+        console.log('[IdeaGraphContext] Emitting node removal to other users');
+        socket.emit('remove-node', {
+          userId,
+          nodeId: nodeId
+        });
+      }
       
       return {
         ...prevState,
@@ -561,7 +692,7 @@ export function IdeaGraphProvider({ children }: Readonly<{ children: ReactNode }
         selectedNodeId: prevState.selectedNodeId === nodeId ? undefined : prevState.selectedNodeId,
       };
     });
-  }, []);
+  }, [socket, userId]);
 
   const updateNodeContent = useCallback((nodeId: string, content: string) => {
     console.log('[IdeaGraphContext] updateNodeContent called for node:', nodeId, 'content:', content);
@@ -571,15 +702,20 @@ export function IdeaGraphProvider({ children }: Readonly<{ children: ReactNode }
       const node = newNodes.get(nodeId);
       
       if (node) {
+        const wasDraft = node.metadata?.isDraft;
         const updatedNode = {
           ...node,
           content,
           updatedAt: new Date(),
+          metadata: {
+            ...node.metadata,
+            isDraft: false, // When content is saved, it's no longer a draft
+          },
         };
         newNodes.set(nodeId, updatedNode);
 
-        // Sync with other users
-        if (socket && userId) {
+        // Sync with other users only if it's not a draft or was a draft that's now being published
+        if (socket && userId && (!wasDraft || (wasDraft && content.trim()))) {
           console.log('[IdeaGraphContext] Emitting sync-ideas for updated content');
           socket.emit('sync-ideas', {
             userId,
@@ -611,6 +747,16 @@ export function IdeaGraphProvider({ children }: Readonly<{ children: ReactNode }
         };
         newNodes.set(nodeId, updatedNode);
 
+        // Sync position update with other users (but not for draft nodes)
+        if (socket && userId && !updatedNode.metadata?.isDraft) {
+          console.log('[IdeaGraphContext] Emitting sync-ideas for position update');
+          socket.emit('sync-ideas', {
+            userId,
+            ideas: [updatedNode],
+            parentNodeId: updatedNode.parentId
+          });
+        }
+
         return {
           ...prevState,
           nodes: newNodes,
@@ -619,7 +765,7 @@ export function IdeaGraphProvider({ children }: Readonly<{ children: ReactNode }
       
       return prevState;
     });
-  }, []);
+  }, [socket, userId]);
 
   const selectNode = useCallback((nodeId: string | undefined) => {
     setState(prev => ({
@@ -642,6 +788,7 @@ export function IdeaGraphProvider({ children }: Readonly<{ children: ReactNode }
       state,
       generateIdeas,
       createEmptyNote,
+      createComment,
       createPromptToolNode,
       removeNode,
       updateNodeContent,

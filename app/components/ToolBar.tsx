@@ -13,17 +13,27 @@ const img6 = '/merge-tool.svg';
 interface ToolBarProps {
   onPanModeChange?: (isPanMode: boolean) => void;
   onNoteToolClick?: () => void;
+  onCommentToolClick?: () => void;
   onPromptToolClick?: () => void;
 }
 
 export default function ToolBar({
   onPanModeChange,
   onNoteToolClick,
+  onCommentToolClick,
   onPromptToolClick,
 }: Readonly<ToolBarProps>) {
   const [activeToolIndex, setActiveToolIndex] = useState(0); // 0: cursor, 1: pan, 2: comment, etc.
 
   const handleToolClick = (toolIndex: number) => {
+    // Handle comment tool click - single click action, don't keep it active
+    if (toolIndex === 2 && onCommentToolClick) {
+      // Comment tool is index 2
+      onCommentToolClick();
+      // Don't change activeToolIndex for comment tool - keep cursor as active
+      return;
+    }
+
     // Handle note tool click - single click action, don't keep it active
     if (toolIndex === 3 && onNoteToolClick) {
       // Note tool is index 3

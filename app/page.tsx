@@ -16,7 +16,7 @@ import { categorizeNodes, exportGraph } from './services/api';
 function HomePageContent() {
   const [fileName, setFileName] = useState('Untitled Document');
   const [isPanMode, setIsPanMode] = useState(false);
-  const { generateIdeas, createEmptyNote, createPromptToolNode, state, isLoading, setSocket, setUserId } = useIdeaGraph();
+  const { generateIdeas, createEmptyNote, createComment, createPromptToolNode, state, isLoading, setSocket, setUserId } = useIdeaGraph();
   const [currentSocket, setCurrentSocket] = useState<Socket | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string>('');
   const socketRef = useRef<Socket | null>(null);
@@ -60,6 +60,8 @@ function HomePageContent() {
             provider: data.provider as 'groq' | 'cohere' | 'mock',
             model: data.model,
           },
+          // Create a prompt node for the main prompt
+          createPromptNode: true,
           // Center the initial prompt
           position: isFirstPrompt ? { x: 400, y: 100 } : undefined,
         });
@@ -212,6 +214,7 @@ function HomePageContent() {
             <ToolBar 
               onPanModeChange={setIsPanMode} 
               onNoteToolClick={createEmptyNote}
+              onCommentToolClick={createComment}
               onPromptToolClick={createPromptToolNode}
             />
           </div>
@@ -237,6 +240,8 @@ function HomePageContent() {
           <NodeGraphFlow
             onNodeGenerate={handleNodeGenerate}
             isPanMode={isPanMode}
+            connectedUsers={connectedUsers}
+            currentUser={currentUser}
           />
 
           {/* Loading state for initial generation */}

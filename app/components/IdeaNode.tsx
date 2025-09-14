@@ -159,7 +159,7 @@ export default function IdeaNode({
     modelLabel?: string,
     isManualNote?: boolean
   ) => {
-    if (isManualNote) return 'Manual Input';
+    if (isManualNote) return 'Manual Mode';
     if (modelLabel) return modelLabel;
     if (!modelName) return 'Unknown Model';
 
@@ -258,13 +258,13 @@ export default function IdeaNode({
                   <div className='flex gap-2'>
                     <button
                       onClick={handleSaveEdit}
-                      className='px-2 py-1 bg-black text-white rounded text-xs hover:bg-black'
+                      className='px-3 py-1 bg-black text-white rounded text-xs hover:bg-gray-800'
                     >
                       Save
                     </button>
                     <button
                       onClick={handleCancelEdit}
-                      className='px-2 py-1 bg-gray-300 text-gray-700 rounded text-xs hover:bg-gray-400'
+                      className='px-3 py-1 bg-gray-500 text-white rounded text-xs hover:bg-gray-600'
                     >
                       Cancel
                     </button>

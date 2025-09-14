@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect } from 'react';
 import ReactFlow, {
   Node,
   Edge,
@@ -25,6 +25,8 @@ import loadingAnimation from '../../public/gagggleLoading.json';
 interface NodeGraphFlowProps {
   onNodeGenerate?: (nodeId: string) => void;
   isPanMode?: boolean;
+  connectedUsers?: { userId: string; color: string }[];
+  currentUser?: { userId: string; color: string };
 }
 
 const nodeTypes: NodeTypes = {
@@ -36,8 +38,10 @@ const nodeTypes: NodeTypes = {
 export default function NodeGraphFlow({
   onNodeGenerate,
   isPanMode = false,
+  connectedUsers = [],
+  currentUser,
 }: Readonly<NodeGraphFlowProps>) {
-  const { state, selectNode, updateNodePosition, isLoading, error } = useIdeaGraph();
+  const { state, selectNode, updateNodePosition, updateNodeContent, removeNode, isLoading, error } = useIdeaGraph();
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
 
@@ -49,7 +53,9 @@ export default function NodeGraphFlow({
     // Calculate positions for nodes
     const promptNodes = Array.from(state.nodes.values()).filter(n => n.metadata?.isPrompt);
     const promptToolNodes = Array.from(state.nodes.values()).filter(n => n.metadata?.isPromptTool);
-    const ideaNodes = Array.from(state.nodes.values()).filter(n => !n.metadata?.isPrompt && !n.metadata?.isPromptTool);
+    const manualNodes = Array.from(state.nodes.values()).filter(n => n.metadata?.isManualNote);
+    const commentNodes = Array.from(state.nodes.values()).filter(n => n.metadata?.isComment);
+    const ideaNodes = Array.from(state.nodes.values()).filter(n => !n.metadata?.isPrompt && !n.metadata?.isPromptTool && !n.metadata?.isManualNote && !n.metadata?.isComment);
     
     // Position prompt nodes - use stored position or default
     promptNodes.forEach((node, index) => {
@@ -63,6 +69,46 @@ export default function NodeGraphFlow({
         data: { 
           node,
           onSelect: () => selectNode(node.id),
+        },
+      });
+    });
+
+    // Position manual notes - use stored position or default
+    manualNodes.forEach((node, index) => {
+      flowNodes.push({
+        id: node.id,
+        type: 'ideaNode',
+        position: node.position || { 
+          x: 200 + (index % 3) * 400, // Grid layout fallback
+          y: 200 + Math.floor(index / 3) * 250 
+        },
+        data: { 
+          node,
+          onSelect: () => selectNode(node.id),
+          onUpdateContent: updateNodeContent,
+          onRemoveNode: removeNode,
+          connectedUsers,
+          currentUser,
+        },
+      });
+    });
+
+    // Position comment nodes - use stored position or default
+    commentNodes.forEach((node, index) => {
+      flowNodes.push({
+        id: node.id,
+        type: 'ideaNode',
+        position: node.position || { 
+          x: 100 + (index % 4) * 350, // Grid layout fallback
+          y: 500 + Math.floor(index / 4) * 200 
+        },
+        data: { 
+          node,
+          onSelect: () => selectNode(node.id),
+          onUpdateContent: updateNodeContent,
+          onRemoveNode: removeNode,
+          connectedUsers,
+          currentUser,
         },
       });
     });
@@ -158,7 +204,7 @@ export default function NodeGraphFlow({
 
     setNodes(flowNodes);
     setEdges(flowEdges);
-  }, [state.nodes, selectNode, onNodeGenerate, setNodes, setEdges]);
+  }, [state.nodes, selectNode, onNodeGenerate, updateNodeContent, removeNode, setNodes, setEdges]);
 
   // Handle node selection
   const onNodeClick = useCallback((event: React.MouseEvent, node: Node) => {
@@ -224,6 +270,7 @@ export default function NodeGraphFlow({
         nodesFocusable={true}
         edgesFocusable={false}
         elementsSelectable={true}
+        selectNodesOnDrag={false}
       >
         <Background 
           variant={BackgroundVariant.Dots} 
