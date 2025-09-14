@@ -99,7 +99,7 @@ export default function NodeGraphFlow({
       // Position children relative to their parent
       const siblingCount = childIdeas.filter(n => n.parentId === node.parentId).length;
       const siblingIndex = childIdeas.filter(n => n.parentId === node.parentId).indexOf(node);
-      const spacing = 300;
+      const spacing = 500; // Match spacing used in IdeaGraphContext
       const startX = parentX - ((siblingCount - 1) * spacing / 2);
       
       flowNodes.push({

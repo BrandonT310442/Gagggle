@@ -212,11 +212,11 @@ export function IdeaGraphProvider({ children }: Readonly<{ children: ReactNode }
       // Calculate position for placeholder based on request position
       let placeholderPosition;
       if (request.position) {
-        const spacing = 300;
+        const spacing = 500; // Node width is 448px, add 52px gap between nodes
         const startX = request.position.x - ((request.count - 1) * spacing / 2);
         placeholderPosition = {
           x: startX + (i * spacing),
-          y: request.position.y + 200 // Position below the prompt node
+          y: request.position.y + 250 // Position below the prompt node with more gap
         };
       }
 
@@ -313,29 +313,35 @@ export function IdeaGraphProvider({ children }: Readonly<{ children: ReactNode }
           });
 
           // Add real nodes with positioning
-          response.ideas.forEach((idea) => {
-            // If position is provided and this is a prompt node, use the provided position
-            if (request.position && idea.metadata?.isPrompt) {
-              idea.position = request.position;
-            } else if (request.position && idea.parentId) {
+          // First, separate prompt nodes from idea nodes
+          const promptNode = response.ideas.find(idea => idea.metadata?.isPrompt);
+          const ideaNodes = response.ideas.filter(idea => !idea.metadata?.isPrompt);
+          
+          // Position the prompt node if it exists
+          if (promptNode && request.position) {
+            promptNode.position = request.position;
+            newNodes.set(promptNode.id, promptNode);
+          }
+          
+          // Position child idea nodes
+          ideaNodes.forEach((idea, index) => {
+            if (request.position) {
               // Position child nodes relative to the parent position
-              const parentNode = response.ideas.find(n => n.id === idea.parentId) || newNodes.get(idea.parentId);
-              if (parentNode) {
-                const childIndex = response.ideas.filter(n => n.parentId === idea.parentId).indexOf(idea);
-                const childCount = response.ideas.filter(n => n.parentId === idea.parentId).length;
-                const spacing = 300;
-                const startX = (request.position.x || 0) - ((childCount - 1) * spacing / 2);
-                idea.position = {
-                  x: startX + (childIndex * spacing),
-                  y: (request.position.y || 0) + 200
-                };
-              }
+              const spacing = 500; // Node width is 448px, add 52px gap between nodes - MUST match placeholder spacing
+              const startX = request.position.x - ((ideaNodes.length - 1) * spacing / 2);
+              idea.position = {
+                x: startX + (index * spacing),
+                y: request.position.y + 250 // MUST match placeholder y offset
+              };
             }
             
             newNodes.set(idea.id, idea);
 
             if (!idea.parentId) {
-              newRootNodes.push(idea.id);
+              // Only add to root nodes if not already present
+              if (!newRootNodes.includes(idea.id)) {
+                newRootNodes.push(idea.id);
+              }
             } else {
               const parent = newNodes.get(idea.parentId);
               if (parent) {
@@ -347,6 +353,13 @@ export function IdeaGraphProvider({ children }: Readonly<{ children: ReactNode }
               }
             }
           });
+          
+          // Handle prompt node's root status
+          if (promptNode && !promptNode.parentId) {
+            if (!newRootNodes.includes(promptNode.id)) {
+              newRootNodes.push(promptNode.id);
+            }
+          }
 
           // Only recalculate positions if no position was provided
           const positionedNodes = request.position ? newNodes : calculateNodePositions(newNodes, newRootNodes);
