@@ -172,14 +172,58 @@ export function IdeaGraphProvider({ children }: Readonly<{ children: ReactNode }
     const placeholderNodes: IdeaNode[] = [];
     const placeholderIds: string[] = [];
 
+    // Store prompt placeholder ID for reference
+    let promptPlaceholderId: string | undefined;
+    
+    // If creating a prompt node, add a placeholder for it too
+    if (request.createPromptNode && request.position) {
+      promptPlaceholderId = `placeholder-prompt-${Date.now()}`;
+      placeholderIds.push(promptPlaceholderId);
+      
+      const promptPlaceholder: IdeaNode = {
+        id: promptPlaceholderId,
+        content: request.prompt,
+        parentId: undefined,
+        childIds: [],
+        metadata: {
+          isPrompt: true,
+          isLoading: true,
+          generatedBy: 'ai',
+          modelProvider: request.modelConfig?.provider,
+          modelName: request.modelConfig?.model,
+          modelLabel: request.modelConfig?.modelLabel,
+        },
+        createdBy: 'system',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        position: request.position,
+      };
+      
+      placeholderNodes.push(promptPlaceholder);
+    }
+
+    // Determine parent ID for idea placeholders
+    const ideaParentId = promptPlaceholderId || parentNode?.id;
+
     for (let i = 0; i < request.count; i++) {
       const placeholderId = `placeholder-${Date.now()}-${i}`;
       placeholderIds.push(placeholderId);
 
+      // Calculate position for placeholder based on request position
+      let placeholderPosition;
+      if (request.position) {
+        const spacing = 300;
+        const startX = request.position.x - ((request.count - 1) * spacing / 2);
+        placeholderPosition = {
+          x: startX + (i * spacing),
+          y: request.position.y + 200 // Position below the prompt node
+        };
+      }
+
       const placeholderNode: IdeaNode = {
         id: placeholderId,
         content: '', // Empty content for loading state
-        parentId: parentNode?.id,
+        parentId: ideaParentId,
         childIds: [],
         metadata: {
           isLoading: true,
@@ -191,6 +235,7 @@ export function IdeaGraphProvider({ children }: Readonly<{ children: ReactNode }
         createdBy: 'system',
         createdAt: new Date(),
         updatedAt: new Date(),
+        position: placeholderPosition, // Add position if available
       };
 
       placeholderNodes.push(placeholderNode);
