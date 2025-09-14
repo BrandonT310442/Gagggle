@@ -1,9 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { IdeaNode as IdeaNodeType } from '../types/idea';
 import Lottie from 'lottie-react';
 import loadingAnimation from '../../public/gagggleLoading.json';
+import Draggable from 'react-draggable';
+import { useXarrow } from 'react-xarrows';
 
 interface IdeaNodeProps {
   node: IdeaNodeType;
@@ -58,6 +60,8 @@ export default function IdeaNode({
   onGenerateChildren,
 }: Readonly<IdeaNodeProps>) {
   const [isHovered, setIsHovered] = useState(false);
+  const nodeRef = useRef<HTMLDivElement>(null);
+  const updateXarrow = useXarrow();
 
   const isPromptNode = node.metadata?.isPrompt;
 
@@ -96,59 +100,67 @@ export default function IdeaNode({
   };
 
   return (
-    <div
-      className={`
-        bg-white box-border flex flex-col gap-6 items-start justify-start p-6 relative
-        cursor-pointer transition-all duration-200
-        ${isSelected ? 'ring-2 ring-blue-500 shadow-lg' : ''}
-        ${isHovered ? 'shadow-xl' : 'shadow-md'}
-      `}
-      onClick={onSelect}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-      style={{
-        width: 'fit-content',
-        minWidth: '28rem',
-        maxWidth: '32rem',
-      }}
+    <Draggable 
+      nodeRef={nodeRef}
+      onDrag={updateXarrow}
+      onStop={updateXarrow}
     >
-      <div className='flex flex-col gap-2 items-start justify-start relative shrink-0 w-full'>
-        {/* Model info section */}
-        <div className='box-border flex gap-2 items-center justify-start px-0 py-2 relative shrink-0'>
-          <div className='flex gap-1 items-center justify-start relative shrink-0'>
-            {getModelIcon(node.metadata?.modelName)}
-            <div className="font-['Inter'] text-xs font-normal leading-4 text-black whitespace-nowrap">
-              {formatModelName(
-                node.metadata?.modelName,
-                node.metadata?.modelLabel
-              )}
+      <div
+        id={node.id}
+        ref={nodeRef}
+        className={`
+          bg-white box-border flex flex-col gap-6 items-start justify-start p-6 relative
+          cursor-pointer transition-all duration-200
+          ${isSelected ? 'ring-2 ring-blue-500 shadow-lg' : ''}
+          ${isHovered ? 'shadow-xl' : 'shadow-md'}
+        `}
+        onClick={onSelect}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+        style={{
+          width: 'fit-content',
+          minWidth: '28rem',
+          maxWidth: '32rem',
+        }}
+      >
+        <div className='flex flex-col gap-2 items-start justify-start relative shrink-0 w-full'>
+          {/* Model info section */}
+          <div className='box-border flex gap-2 items-center justify-start px-0 py-2 relative shrink-0'>
+            <div className='flex gap-1 items-center justify-start relative shrink-0'>
+              {getModelIcon(node.metadata?.modelName)}
+              <div className="font-['Inter'] text-xs font-normal leading-4 text-black whitespace-nowrap">
+                {formatModelName(
+                  node.metadata?.modelName,
+                  node.metadata?.modelLabel
+                )}
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* Content section */}
-        <div
-          className="font-['Syne'] text-base font-normal leading-6 text-black"
-          style={{
-            fontFamily: 'Syne, sans-serif',
-            width: 'min-content',
-            minWidth: '100%',
-          }}
-        >
-          {node.metadata?.isLoading ? (
-            <div className='flex flex-col items-center justify-center py-4'>
-              <Lottie
-                animationData={loadingAnimation}
-                style={{ width: 120, height: 90 }}
-                loop={true}
-              />
-              <p className='text-xs text-gray-500 mt-2'>Generating idea...</p>
-            </div>
-          ) : (
-            node.content
-          )}
+          {/* Content section */}
+          <div
+            className="font-['Syne'] text-base font-normal leading-6 text-black"
+            style={{
+              fontFamily: 'Syne, sans-serif',
+              width: 'min-content',
+              minWidth: '100%',
+            }}
+          >
+            {node.metadata?.isLoading ? (
+              <div className='flex flex-col items-center justify-center py-4'>
+                <Lottie
+                  animationData={loadingAnimation}
+                  style={{ width: 120, height: 90 }}
+                  loop={true}
+                />
+                <p className='text-xs text-gray-500 mt-2'>Generating idea...</p>
+              </div>
+            ) : (
+              node.content
+            )}
+          </div>
         </div>
       </div>
-    </div>
+    </Draggable>
   );
 }

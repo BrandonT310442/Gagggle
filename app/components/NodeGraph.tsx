@@ -7,6 +7,7 @@ import PromptNode from './PromptNode';
 import { IdeaNode as IdeaNodeType } from '../types/idea';
 import Lottie from 'lottie-react';
 import loadingAnimation from '../../public/gagggleLoading.json';
+import Xarrow, { Xwrapper, useXarrow } from 'react-xarrows';
 
 interface NodeGraphProps {
   onNodeGenerate?: (nodeId: string) => void;
@@ -25,6 +26,7 @@ export default function NodeGraph({
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
+  const updateXarrow = useXarrow();
 
   // Group nodes by generation level (same parent or root nodes)
   const groupNodesByLevel = useCallback(() => {
@@ -212,40 +214,60 @@ export default function NodeGraph({
       >
         {/* Only show nodes if they exist */}
         {hasNodes && (
-          <div className='mb-12'>
-            {/* All Prompt Nodes - Centered */}
-            {Array.from(state.nodes.values())
-              .filter(node => node.metadata?.isPrompt)
-              .map((promptNode) => (
-                <div key={promptNode.id} className='flex justify-center mb-8'>
-                  <PromptNode
-                    node={promptNode}
-                    isSelected={state.selectedNodeId === promptNode.id}
-                    onSelect={() => selectNode(promptNode.id)}
-                  />
-                </div>
-              ))}
-
-            {/* All Idea Nodes - Horizontal row */}
-            <div className='flex justify-center'>
-              <div
-                className='flex items-start gap-6'
-                style={{ minWidth: 'fit-content' }}
-              >
-                {Array.from(state.nodes.values())
-                  .filter(node => !node.metadata?.isPrompt)
-                  .map((node) => (
-                    <IdeaNode
-                      key={node.id}
-                      node={node}
-                      isSelected={state.selectedNodeId === node.id}
-                      onSelect={() => selectNode(node.id)}
-                      onGenerateChildren={() => onNodeGenerate?.(node.id)}
+          <Xwrapper>
+            <div className='mb-12'>
+              {/* All Prompt Nodes - Centered */}
+              {Array.from(state.nodes.values())
+                .filter(node => node.metadata?.isPrompt)
+                .map((promptNode) => (
+                  <div key={promptNode.id} className='flex justify-center mb-8'>
+                    <PromptNode
+                      node={promptNode}
+                      isSelected={state.selectedNodeId === promptNode.id}
+                      onSelect={() => selectNode(promptNode.id)}
                     />
-                  ))}
+                  </div>
+                ))}
+
+              {/* All Idea Nodes - Horizontal row */}
+              <div className='flex justify-center'>
+                <div
+                  className='flex items-start gap-6'
+                  style={{ minWidth: 'fit-content' }}
+                >
+                  {Array.from(state.nodes.values())
+                    .filter(node => !node.metadata?.isPrompt)
+                    .map((node) => (
+                      <IdeaNode
+                        key={node.id}
+                        node={node}
+                        isSelected={state.selectedNodeId === node.id}
+                        onSelect={() => selectNode(node.id)}
+                        onGenerateChildren={() => onNodeGenerate?.(node.id)}
+                      />
+                    ))}
+                </div>
               </div>
+              
+              {/* Render arrows for parent-child relationships */}
+              {Array.from(state.nodes.values()).map((parentNode, parentIndex) => 
+                parentNode.childIds && parentNode.childIds.length > 0 && 
+                parentNode.childIds.map((childId, childIndex) => (
+                  <Xarrow
+                    key={`arrow-${parentIndex}-${childIndex}-${parentNode.id}-${childId}`}
+                    start={parentNode.id}
+                    end={childId}
+                    color="#64748b"
+                    strokeWidth={2}
+                    path="smooth"
+                    curveness={0.6}
+                    headShape="arrow1"
+                    headSize={4}
+                  />
+                ))
+              )}
             </div>
-          </div>
+          </Xwrapper>
         )}
       </div>
     </div>
