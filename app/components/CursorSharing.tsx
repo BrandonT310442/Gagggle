@@ -244,14 +244,6 @@ export default function CursorSharing({ children }: Readonly<CursorSharingProps>
         onShareRoom={handleShareRoom}
       /> */}
 
-      <Cursor
-        x={myPosition.x}
-        y={myPosition.y}
-        color={userColor}
-        userId={userId}
-        isOwn={true}
-      />
-
       {Object.values(cursors).map((cursor) => (
         <Cursor
           key={cursor.userId}
