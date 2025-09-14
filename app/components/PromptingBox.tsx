@@ -117,7 +117,12 @@ const ArrowForwardIcon = () => (
 );
 
 // Reusable Dropdown Component matching Figma specs
-function Dropdown({ value, options, onChange, placeholder }: DropdownProps) {
+function Dropdown({
+  value,
+  options,
+  onChange,
+  placeholder,
+}: Readonly<DropdownProps>) {
   const [isOpen, setIsOpen] = useState(false);
   const selectedOption = options.find((opt) => opt.value === value);
 
@@ -136,6 +141,11 @@ function Dropdown({ value, options, onChange, placeholder }: DropdownProps) {
       return <CohereIcon />;
     }
     return null;
+  };
+
+  // Prevent scroll events from bubbling up to ReactFlow when scrolling in dropdown
+  const handleDropdownWheel = (e: React.WheelEvent) => {
+    e.stopPropagation();
   };
 
   return (
@@ -161,6 +171,7 @@ function Dropdown({ value, options, onChange, placeholder }: DropdownProps) {
         <div
           className='absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded shadow-lg z-10 min-w-full max-h-32 overflow-y-auto'
           role='listbox'
+          onWheel={handleDropdownWheel}
         >
           {options.map((option) => (
             <button
@@ -197,7 +208,9 @@ export default function PromptingBox({
   const [llmProvider, setLlmProvider] = useState('groq');
   const [ideaCount, setIdeaCount] = useState('3');
   const [prompt, setPrompt] = useState('');
-  const [typingTimeout, setTypingTimeout] = useState<NodeJS.Timeout | null>(null);
+  const [typingTimeout, setTypingTimeout] = useState<NodeJS.Timeout | null>(
+    null
+  );
   const [collaborativeText, setCollaborativeText] = useState('');
 
   const llmProviders = [
@@ -276,7 +289,7 @@ export default function PromptingBox({
 
   const handleTyping = (newText: string) => {
     setPrompt(newText);
-    
+
     // Emit typing event for real-time collaboration
     if (onTyping) {
       console.log('Emitting typing event:', newText.substring(0, 30));
@@ -301,25 +314,37 @@ export default function PromptingBox({
 
   // Sync collaborative text from other users
   useEffect(() => {
-    console.log('PromptingBox: typingUsers updated:', typingUsers.size, 'currentUserId:', currentUserId);
-    
+    console.log(
+      'PromptingBox: typingUsers updated:',
+      typingUsers.size,
+      'currentUserId:',
+      currentUserId
+    );
+
     // Get all other users (not current user) with text
     const otherUsers = Array.from(typingUsers.values()).filter(
-      user => user.userId !== currentUserId
+      (user) => user.userId !== currentUserId
     );
-    
+
     console.log('PromptingBox: other users with text:', otherUsers.length);
-    
+
     if (otherUsers.length > 0) {
       // Use the most recent text from another user
-      const mostRecent = otherUsers.reduce((latest, current) => 
-        current.timestamp > latest.timestamp ? current : latest, otherUsers[0]
+      const mostRecent = otherUsers.reduce(
+        (latest, current) =>
+          current.timestamp > latest.timestamp ? current : latest,
+        otherUsers[0]
       );
-      console.log('PromptingBox: setting collaborative text:', mostRecent.text.substring(0, 30));
+      console.log(
+        'PromptingBox: setting collaborative text:',
+        mostRecent.text.substring(0, 30)
+      );
       setCollaborativeText(mostRecent.text);
     } else {
       // No other users with text - clear collaborative text
-      console.log('PromptingBox: no other users with text, clearing collaborative text');
+      console.log(
+        'PromptingBox: no other users with text, clearing collaborative text'
+      );
       setCollaborativeText('');
     }
   }, [typingUsers, currentUserId]);
@@ -327,19 +352,23 @@ export default function PromptingBox({
   // Get the color for the collaborating user
   const getCollaboratorColor = () => {
     const otherUsers = Array.from(typingUsers.values()).filter(
-      user => user.userId !== currentUserId
+      (user) => user.userId !== currentUserId
     );
-    
+
     if (otherUsers.length > 0) {
-      const mostRecent = otherUsers.reduce((latest, current) => 
-        current.timestamp > latest.timestamp ? current : latest, otherUsers[0]
+      const mostRecent = otherUsers.reduce(
+        (latest, current) =>
+          current.timestamp > latest.timestamp ? current : latest,
+        otherUsers[0]
       );
-      
+
       // Find the connected user's color
-      const connectedUser = connectedUsers.find(user => user.userId === mostRecent.userId);
+      const connectedUser = connectedUsers.find(
+        (user) => user.userId === mostRecent.userId
+      );
       return connectedUser?.color || '#3B82F6'; // Default to blue if color not found
     }
-    
+
     return '#3B82F6';
   };
 
@@ -387,10 +416,10 @@ export default function PromptingBox({
               }}
             />
           </div>
-          
+
           {/* Collaborator's text - Bottom Row (highlighted in their color) */}
           {collaborativeText && collaborativeText !== prompt && (
-            <div 
+            <div
               className='p-3 rounded border-l-4 mb-2'
               style={{
                 backgroundColor: `${collaboratorColor}10`, // Very light background
@@ -399,18 +428,18 @@ export default function PromptingBox({
               }}
             >
               <div className='flex items-center gap-2 mb-1'>
-                <div 
+                <div
                   className='w-2 h-2 rounded-full animate-pulse'
                   style={{ backgroundColor: collaboratorColor }}
                 />
-                <span 
+                <span
                   className='text-xs font-medium opacity-75'
                   style={{ color: collaboratorColor }}
                 >
                   Collaborator is typing:
                 </span>
               </div>
-              <div 
+              <div
                 className='font-syne text-base font-semibold leading-6'
                 style={{
                   fontFamily: 'Syne, sans-serif',
