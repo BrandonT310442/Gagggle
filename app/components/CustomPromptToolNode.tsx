@@ -95,9 +95,15 @@ interface DropdownProps {
 }
 
 // Dropdown Component exactly from PromptingBox
-function Dropdown({ value, options, onChange, placeholder }: DropdownProps) {
+function Dropdown({
+  value,
+  options,
+  onChange,
+  placeholder,
+}: Readonly<DropdownProps>) {
   const [isOpen, setIsOpen] = useState(false);
   const selectedOption = options.find((opt) => opt.value === value);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   const getModelIcon = (optionValue: string, provider?: string) => {
     if (optionValue.includes('openai') || optionValue.includes('gpt')) {
@@ -116,8 +122,38 @@ function Dropdown({ value, options, onChange, placeholder }: DropdownProps) {
     return null;
   };
 
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node)
+      ) {
+        setIsOpen(false);
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isOpen]);
+
+  // Prevent scroll events from bubbling up to ReactFlow when scrolling in dropdown
+  const handleDropdownWheel = (e: React.WheelEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    // Manually handle the scroll for the dropdown
+    const target = e.currentTarget as HTMLElement;
+    target.scrollTop += e.deltaY;
+  };
+
   return (
-    <div className='relative'>
+    <div className='relative' ref={dropdownRef}>
       <button
         type='button'
         className='bg-white box-border flex gap-2 items-center justify-start p-2 relative shrink-0 border border-transparent hover:border-gray-200 focus:outline-none focus:border-blue-400'
@@ -139,6 +175,8 @@ function Dropdown({ value, options, onChange, placeholder }: DropdownProps) {
         <div
           className='absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded shadow-lg z-10 min-w-full max-h-32 overflow-y-auto'
           role='listbox'
+          onWheel={handleDropdownWheel}
+          onWheelCapture={handleDropdownWheel}
         >
           {options.map((option) => (
             <button
@@ -169,6 +207,7 @@ export default function CustomPromptToolNode({ data, selected }: NodeProps) {
   const [ideaCount, setIdeaCount] = useState('3');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const nodeRef = useRef<HTMLDivElement>(null);
 
   const llmProviders: DropdownOption[] = [
     {
@@ -223,11 +262,41 @@ export default function CustomPromptToolNode({ data, selected }: NodeProps) {
     }
   }, []);
 
+  // Add native wheel event listener to prevent ReactFlow zoom when scrolling in dropdowns
+  useEffect(() => {
+    const handleWheelEvent = (e: WheelEvent) => {
+      const target = e.target as HTMLElement;
+      const dropdownElement = target.closest('[role="listbox"]');
+
+      if (dropdownElement && nodeRef.current?.contains(target)) {
+        // We're scrolling inside a dropdown within this node
+        e.stopPropagation();
+        e.preventDefault();
+
+        // Manually handle the scroll
+        dropdownElement.scrollTop += e.deltaY;
+      }
+    };
+
+    const nodeElement = nodeRef.current;
+    if (nodeElement) {
+      nodeElement.addEventListener('wheel', handleWheelEvent, {
+        passive: false,
+      });
+    }
+
+    return () => {
+      if (nodeElement) {
+        nodeElement.removeEventListener('wheel', handleWheelEvent);
+      }
+    };
+  }, []);
+
   const handleSubmit = useCallback(async () => {
     if (!prompt.trim() || isSubmitting) return;
 
     setIsSubmitting(true);
-    const selectedProvider = llmProviders.find(p => p.value === llmProvider);
+    const selectedProvider = llmProviders.find((p) => p.value === llmProvider);
 
     try {
       // If this prompt tool has a parent, we need to create a prompt node manually
@@ -283,7 +352,15 @@ export default function CustomPromptToolNode({ data, selected }: NodeProps) {
       console.error('Failed to generate ideas:', error);
       setIsSubmitting(false);
     }
-  }, [prompt, llmProvider, ideaCount, generateIdeas, removeNode, data.node, llmProviders]);
+  }, [
+    prompt,
+    llmProvider,
+    ideaCount,
+    generateIdeas,
+    removeNode,
+    data.node,
+    llmProviders,
+  ]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
@@ -299,12 +376,13 @@ export default function CustomPromptToolNode({ data, selected }: NodeProps) {
   };
 
   return (
-    <div 
+    <div
+      ref={nodeRef}
       className='bg-slate-50 box-border flex flex-col gap-4 items-start justify-start p-4 relative w-[400px] border border-dashed border-slate-400'
       style={{ minWidth: '400px' }}
     >
-      <Handle type="target" position={Position.Top} className="opacity-0" />
-      
+      <Handle type='target' position={Position.Top} className='opacity-0' />
+
       {/* Content container */}
       <div className='flex flex-col gap-2 items-start justify-start relative shrink-0 w-full'>
         {/* Dropdowns Row */}
@@ -355,7 +433,7 @@ export default function CustomPromptToolNode({ data, selected }: NodeProps) {
         </button>
       </div>
 
-      <Handle type="source" position={Position.Bottom} className="opacity-0" />
+      <Handle type='source' position={Position.Bottom} className='opacity-0' />
     </div>
   );
 }

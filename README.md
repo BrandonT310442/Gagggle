@@ -2,11 +2,11 @@
 
 An intelligent whiteboarding platform that supercharges creativity through AI-powered ideation, real-time collaboration, and seamless idea manipulation.
 
-## 🎯 Vision
+## Vision
 
 Gagggle transforms the traditional whiteboarding experience by eliminating "blank page anxiety" and accelerating the ideation process. We combine the spatial freedom of tools like Miro and FigJam with powerful AI capabilities that generate, expand, and synthesize ideas in real-time.
 
-## 🚀 Problem We're Solving
+## Problem We're Solving
 
 Traditional whiteboarding tools require manual ideation and organization, leading to:
 - Slow start times and creative blocks
@@ -16,7 +16,7 @@ Traditional whiteboarding tools require manual ideation and organization, leadin
 
 **Our Solution:** AI-augmented ideation that jump-starts creativity while maintaining the flexibility of manual collaboration.
 
-## 🏗️ Technical Architecture
+## Technical Architecture
 
 ### Frontend Stack
 - **Next.js 15.5** - React framework with App Router
@@ -50,7 +50,7 @@ Traditional whiteboarding tools require manual ideation and organization, leadin
 - **Zod Validation** - Runtime type checking for API requests
 - **Modular LLM Providers** - Swappable AI providers (Groq, Cohere, Mock)
 
-## 🔄 User Journey
+## User Journey
 
 1. **Start** → Create new board or select template
 2. **Prompt** → Enter ideation prompt (e.g., "Ways to improve user onboarding")
@@ -61,42 +61,53 @@ Traditional whiteboarding tools require manual ideation and organization, leadin
 7. **Annotate** → Add drawings, arrows, and manual notes
 8. **Export** → Save and share results in various formats
 
-## 🗺️ Development Roadmap
+## Future Plans
 
-### Phase 1: MVP (Months 1-2)
-- [ ] Core whiteboard canvas with sticky notes
-- [ ] AI idea generation from prompts
-- [ ] Basic idea expansion
-- [ ] Real-time collaboration (text only)
-- [ ] Export to PDF/text
-- [ ] User authentication
+### Core Features
+- Advanced AI-powered idea clustering and categorization
+- Real-time collaborative editing with multiple users
+- Freehand drawing tools and annotations
+- Export functionality (PDF, images, text)
+- Template library for common brainstorming scenarios
 
-### Phase 2: Enhanced AI (Month 3)
-- [ ] Idea combination/hybridization
-- [ ] Advanced prompt refinement
-- [ ] AI-powered clustering
-- [ ] Context-aware suggestions
+### AI Enhancements
+- Context-aware idea suggestions based on existing content
+- Multi-modal AI integration (text, images, voice)
+- Intelligent idea combination and synthesis
+- Automated meeting summaries and action items
 
-### Phase 3: Collaboration (Month 4)
-- [ ] Freehand drawing tools
-- [ ] Advanced permission system
-- [ ] Version history
-- [ ] Templates library
-- [ ] Comments and chat
+### Collaboration Features
+- User authentication and permission management
+- Version history and change tracking
+- Comments and threaded discussions
+- Screen sharing and video integration
 
-### Phase 4: Integrations (Post-MVP)
-- [ ] Slack/Teams integration
-- [ ] Notion/JIRA sync
-- [ ] API for third-party apps
-- [ ] Mobile applications
 
-## 🚀 Getting Started
+## Getting Started
 
 ### Prerequisites
 ```bash
 Node.js 18+
 npm 9+
 ```
+
+### API Keys Setup
+
+Before running the application, you'll need to obtain API keys from the AI providers:
+
+#### Groq API Key
+1. Visit [Groq Console](https://console.groq.com/)
+2. Sign up or log in to your account
+3. Navigate to API Keys section
+4. Create a new API key
+5. Copy the key (starts with `gsk_...`)
+
+#### Cohere API Key
+1. Visit [Cohere Dashboard](https://dashboard.cohere.ai/)
+2. Sign up or log in to your account
+3. Go to API Keys section
+4. Generate a new API key
+5. Copy the key (starts with `co_...`)
 
 ### Installation
 ```bash
@@ -109,30 +120,79 @@ npm install
 
 # Set up environment variables
 cp .env.example .env.local
-# Add your API keys (GROQ_API_KEY, COHERE_API_KEY)
+# Edit .env.local and add your API keys:
+# GROQ_API_KEY=your_groq_api_key_here
+# COHERE_API_KEY=your_cohere_api_key_here
 
 # Start frontend development server
 npm run dev
 
 # In another terminal, start backend server
 npm run backend:dev
-
-# For local network demo (allows other devices on network to connect)
-npm run demo:local
 ```
 
 ### Environment Variables
 ```env
-# API Keys
-GROQ_API_KEY=your_groq_api_key
-COHERE_API_KEY=your_cohere_api_key
+# API Keys (Required)
+GROQ_API_KEY=your_groq_api_key_here
+COHERE_API_KEY=your_cohere_api_key_here
 
 # Server Configuration
 PORT=3001
 NEXT_PUBLIC_API_URL=http://localhost:3001
 ```
 
-## 🧪 Testing
+### Local Network Setup (For Team Collaboration)
+
+To allow other users on your network to access the whiteboard:
+
+#### Quick Setup
+```bash
+# Terminal 1: Get your local IP and start backend
+npm run get-ip
+npm run backend:local
+
+# Terminal 2: Start frontend on network
+npm run dev:local
+
+# Share this URL with teammates:
+# http://YOUR_IP:3000/?room=YOUR_ROOM_ID
+```
+
+#### Detailed Network Configuration
+
+1. **Find your local IP address:**
+   ```bash
+   # Automatic detection
+   npm run get-ip
+   
+   # Manual detection
+   # macOS/Linux:
+   ifconfig | grep inet
+   # Windows:
+   ipconfig | findstr IPv4
+   ```
+
+2. **Start services on network:**
+   ```bash
+   # Backend (Terminal 1)
+   npm run backend:local
+   
+   # Frontend (Terminal 2) 
+   npm run dev:local
+   ```
+
+3. **Share with teammates:**
+   - Use the Network URL shown in terminal (e.g., `http://192.168.1.100:3000`)
+   - Add room parameter: `http://YOUR_IP:3000/?room=demo123`
+   - Ensure teammates are on the same WiFi network
+
+#### Network Requirements
+- All users must be on the same WiFi network
+- Ports 3000 and 3001 must be available
+- Firewall should allow connections on these ports
+
+## Testing
 
 ```bash
 # Run linting
@@ -145,7 +205,7 @@ npx tsc --noEmit
 npm run ai-client
 ```
 
-## 📈 Performance Targets
+## Performance Targets
 
 - **Idea Generation:** < 2 seconds for 10 ideas
 - **Board Load Time:** < 1 second
@@ -153,34 +213,26 @@ npm run ai-client
 - **AI Response:** < 3 seconds for expansion/combination
 - **Concurrent Users:** Support 50+ per board
 
-## 🔒 Security & Privacy
+## Troubleshooting
 
-- End-to-end encryption for sensitive boards
-- GDPR/CCPA compliant data handling
-- Regular security audits
-- IP protection for generated ideas
-- Role-based access control
+### Common Issues
 
-## 🤝 Contributing
+**API Key Errors:**
+- Ensure your API keys are correctly set in `.env.local`
+- Verify keys are active and have sufficient credits
+- Check console for specific error messages
 
-We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+**Network Connection Issues:**
+- Confirm all users are on the same WiFi network
+- Check firewall settings for ports 3000 and 3001
+- Verify IP address is correct (not localhost)
+- Test backend health: `curl http://YOUR_IP:3001/health`
 
-## 📄 License
+**Performance Issues:**
+- Check WiFi signal strength
+- Disable VPN if active
+- Ensure no other applications are using the same ports
+
+## License
 
 This project is licensed under the MIT License - see [LICENSE](LICENSE) for details.
-
-## 🙏 Acknowledgments
-
-- Built with Next.js, React, and TypeScript
-- Powered by OpenAI and Anthropic Claude
-- Inspired by Miro, FigJam, and collaborative creativity tools
-
-## 📞 Contact
-
-- Website: [gagggle.ai](https://gagggle.ai)
-- Email: team@gagggle.ai
-- Twitter: [@gagggle](https://twitter.com/gagggle)
-
----
-
-**Built with ❤️ for creative teams everywhere**

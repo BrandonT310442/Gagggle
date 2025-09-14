@@ -1,6 +1,12 @@
 'use client';
 
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import React, {
+  useState,
+  useCallback,
+  useEffect,
+  useRef,
+  useMemo,
+} from 'react';
 import { Socket } from 'socket.io-client';
 import PromptingBox from './components/PromptingBox';
 import FileName from './components/FileName';
@@ -12,6 +18,7 @@ import NodeGraphFlow from './components/NodeGraphFlow';
 import { IdeaGraphProvider, useIdeaGraph } from './contexts/IdeaGraphContext';
 import Lottie from 'lottie-react';
 import loadingAnimation from '../public/gagggleLoading.json';
+import openingAnimation from '../public/gagggleAnimation.json';
 import { categorizeNodes, exportGraph } from './services/api';
 
 function HomePageContent() {
@@ -35,9 +42,16 @@ function HomePageContent() {
   const socketRef = useRef<Socket | null>(null);
   const userIdRef = useRef<string>('');
 
+  // Opening animation state (from rachelkd-loading-animation branch)
+  const [showOpeningAnimation, setShowOpeningAnimation] = useState(true);
+  const [fadeOut, setFadeOut] = useState(false);
+
   // Connect socket to IdeaGraphContext when it changes
   useEffect(() => {
-    console.log('[HomePage] Socket changed, passing to IdeaGraphContext:', !!currentSocket);
+    console.log(
+      '[HomePage] Socket changed, passing to IdeaGraphContext:',
+      !!currentSocket
+    );
     if (currentSocket !== null) {
       setSocket(currentSocket);
     }
@@ -45,19 +59,53 @@ function HomePageContent() {
 
   // Update user ID when it changes
   useEffect(() => {
-    console.log('[HomePage] UserId changed, passing to IdeaGraphContext:', currentUserId);
+    console.log(
+      '[HomePage] UserId changed, passing to IdeaGraphContext:',
+      currentUserId
+    );
     if (currentUserId) {
       setUserId(currentUserId);
     }
   }, [currentUserId, setUserId]);
 
+  // Handle opening animation and cache clearing (from rachelkd-loading-animation branch)
+  useEffect(() => {
+    // Clear cache on page load
+    if ('caches' in window) {
+      caches.keys().then((names) => {
+        names.forEach((name) => {
+          caches.delete(name);
+        });
+      });
+    }
+
+    // Start fade out after animation completes (1.5 seconds at 100fps = 150 frames)
+    const animationTimer = setTimeout(() => {
+      setFadeOut(true);
+
+      // Remove opening animation after fade out completes
+      const fadeTimer = setTimeout(() => {
+        setShowOpeningAnimation(false);
+      }, 800); // 800ms fade duration
+
+      return () => clearTimeout(fadeTimer);
+    }, 1500); // Animation duration
+
+    return () => clearTimeout(animationTimer);
+  }, []);
+
   const handlePromptSubmit = useCallback(
-    async (data: {
-      provider: string;
-      model?: string;
-      ideaCount: string;
-      prompt: string;
-    }, emitIdeaGenerationStart?: () => void, emitIdeaGenerationComplete?: () => void, emitIdeaGenerationError?: () => void) => {
+    async (
+      data: {
+        provider: string;
+        model?: string;
+        ideaCount: string;
+        prompt: string;
+      },
+      emitIdeaGenerationStart?: () => void,
+      emitIdeaGenerationComplete?: () => void,
+      emitIdeaGenerationError?: () => void
+    ) => {
       const isFirstPrompt = state.nodes.size === 0;
 
       try {
@@ -147,21 +195,23 @@ function HomePageContent() {
       if (response.success && response.content) {
         // Create a blob from the markdown content
         const blob = new Blob([response.content], { type: 'text/markdown' });
-        
+
         // Create a download link
         const url = window.URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
-        link.download = `${fileName.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_export_${new Date().toISOString().split('T')[0]}.md`;
-        
+        link.download = `${fileName
+          .replace(/[^a-z0-9]/gi, '_')
+          .toLowerCase()}_export_${new Date().toISOString().split('T')[0]}.md`;
+
         // Trigger the download
         document.body.appendChild(link);
         link.click();
-        
+
         // Clean up
         document.body.removeChild(link);
         window.URL.revokeObjectURL(url);
-        
+
         console.log('Export completed successfully');
       }
     } catch (error) {
@@ -171,11 +221,44 @@ function HomePageContent() {
 
   const hasNodes = state.nodes.size > 0;
 
+  // Calculate animation tiling layout (from rachelkd-loading-animation branch)
+  const animationLayout = useMemo(() => {
+    const animationAspectRatio = 1512 / 982; // Original animation dimensions
+    const screenWidth =
+      typeof window !== 'undefined' ? window.innerWidth : 1920;
+    const screenHeight =
+      typeof window !== 'undefined' ? window.innerHeight : 1080;
+
+    // Calculate tile size to fit screen width perfectly
+    const tileWidth = screenWidth;
+    const tileHeight = tileWidth / animationAspectRatio;
+
+    // Center the main animation
+    const centerY = screenHeight / 2;
+    const mainAnimationTop = centerY - tileHeight / 2;
+
+    // Calculate how many tiles we need above and below
+    const tilesAbove = Math.ceil(mainAnimationTop / tileHeight);
+    const tilesBelow = Math.ceil(
+      (screenHeight - (mainAnimationTop + tileHeight)) / tileHeight
+    );
+
+    return {
+      tileWidth,
+      tileHeight,
+      centerY,
+      mainAnimationTop,
+      tilesAbove,
+      tilesBelow,
+      totalHeight: (tilesAbove + 1 + tilesBelow) * tileHeight,
+    };
+  }, []);
+
   return (
     <CursorSharing>
-      {({ 
-        connectedUsers, 
-        currentUser, 
+      {({
+        connectedUsers,
+        currentUser,
         isConnected,
         socket,
         typingUsers,
@@ -183,112 +266,226 @@ function HomePageContent() {
         stopTyping,
         emitIdeaGenerationStart,
         emitIdeaGenerationComplete,
-        emitIdeaGenerationError
+        emitIdeaGenerationError,
       }) => {
         // Update refs during render (safe) and trigger updates
         if (socketRef.current !== socket) {
-          console.log('[HomePage] Socket ref updated, scheduling state update:', !!socket);
+          console.log(
+            '[HomePage] Socket ref updated, scheduling state update:',
+            !!socket
+          );
           socketRef.current = socket;
           setTimeout(() => setCurrentSocket(socket), 0);
         }
-        
+
         if (userIdRef.current !== currentUser.userId) {
-          console.log('[HomePage] UserId ref updated, scheduling state update:', currentUser.userId);
+          console.log(
+            '[HomePage] UserId ref updated, scheduling state update:',
+            currentUser.userId
+          );
           userIdRef.current = currentUser.userId;
           setTimeout(() => setCurrentUserId(currentUser.userId), 0);
         }
 
         return (
-        <div
-          className='h-screen w-screen relative overflow-hidden'
-          style={{
-            backgroundColor: '#F8FAFC',
-            backgroundImage: 'url(/gagggle-background-spaced.svg)',
-            backgroundRepeat: 'repeat',
-          }}
-        >
-          {/* Top UI Elements */}
-          <div className='absolute top-4 left-4 w-fit z-20'>
-            <FileName
-              fileName={fileName}
-              onFileNameChange={handleFileNameChange}
-            />
-          </div>
-          <div className='absolute top-4 right-4 w-fit z-20'>
-            <ShareBar
-              connectedUsers={connectedUsers}
-              currentUser={currentUser}
-              onExport={handleExport}
-            />
-          </div>
+          <>
+            {/* Opening Animation Overlay (from rachelkd-loading-animation branch) */}
+            {showOpeningAnimation && (
+              <div
+                className={`fixed inset-0 z-50 bg-white transition-opacity duration-800 overflow-hidden ${
+                  fadeOut ? 'opacity-0' : 'opacity-100'
+                }`}
+              >
+                <div className='relative w-full h-screen'>
+                  {/* Reflected animations above the center */}
+                  {Array.from(
+                    { length: animationLayout.tilesAbove },
+                    (_, index) => {
+                      const reverseIndex =
+                        animationLayout.tilesAbove - 1 - index;
+                      const isReflected = reverseIndex % 2 === 0;
+                      return (
+                        <div
+                          key={`above-${index}`}
+                          className='absolute w-full'
+                          style={{
+                            top: `${
+                              animationLayout.mainAnimationTop -
+                              (index + 1) * animationLayout.tileHeight
+                            }px`,
+                            height: `${animationLayout.tileHeight}px`,
+                            transform: isReflected ? 'scaleY(-1)' : 'none',
+                          }}
+                        >
+                          <Lottie
+                            animationData={openingAnimation}
+                            style={{
+                              width: `${animationLayout.tileWidth}px`,
+                              height: `${animationLayout.tileHeight}px`,
+                            }}
+                            loop={false}
+                            autoplay={true}
+                          />
+                        </div>
+                      );
+                    }
+                  )}
 
-          {/* ToolBar - Bottom center */}
-          <div className='absolute bottom-4 left-1/2 transform -translate-x-1/2 z-20'>
-            <ToolBar 
-              onPanModeChange={setIsPanMode} 
-              onNoteToolClick={createEmptyNote}
-              onCommentToolClick={createComment}
-              onPromptToolClick={createPromptToolNode}
-              onMergeToolClick={toggleMergeMode}
-              isMergeMode={state.isMergeMode}
-            />
-          </div>
-          
-          {/* Merge Confirmation - Above toolbar when nodes are selected */}
-          {state.isMergeMode && state.selectedNodeIds && state.selectedNodeIds.size > 0 && (
-            <div className='absolute bottom-20 left-1/2 transform -translate-x-1/2 z-30'>
-              <MergeConfirmation
-                selectedCount={state.selectedNodeIds.size}
-                onMerge={mergeSelectedNodes}
-                onCancel={() => {
-                  clearMergeSelection();
-                  toggleMergeMode();
-                }}
-              />
-            </div>
-          )}
+                  {/* Main centered animation (normal) */}
+                  <div
+                    className='absolute w-full'
+                    style={{
+                      top: `${animationLayout.mainAnimationTop}px`,
+                      height: `${animationLayout.tileHeight}px`,
+                    }}
+                  >
+                    <Lottie
+                      animationData={openingAnimation}
+                      style={{
+                        width: `${animationLayout.tileWidth}px`,
+                        height: `${animationLayout.tileHeight}px`,
+                      }}
+                      loop={false}
+                      autoplay={true}
+                    />
+                  </div>
 
-          {/* Initial Centered Prompting Box */}
-          {!hasNodes && (
-            <div className='absolute inset-0 flex items-center justify-center z-10 pointer-events-none'>
-              <div className='w-full max-w-2xl px-4 pointer-events-auto'>
-                <PromptingBox
-                  onSubmit={(data) => handlePromptSubmit(data, emitIdeaGenerationStart, emitIdeaGenerationComplete, emitIdeaGenerationError)}
-                  isLoading={isLoading}
-                  typingUsers={typingUsers}
-                  currentUserId={currentUser.userId}
-                  onTyping={emitTyping}
-                  onStopTyping={stopTyping}
+                  {/* Reflected animations below the center */}
+                  {Array.from(
+                    { length: animationLayout.tilesBelow },
+                    (_, index) => {
+                      const isReflected = index % 2 === 0;
+                      return (
+                        <div
+                          key={`below-${index}`}
+                          className='absolute w-full'
+                          style={{
+                            top: `${
+                              animationLayout.mainAnimationTop +
+                              (index + 1) * animationLayout.tileHeight
+                            }px`,
+                            height: `${animationLayout.tileHeight}px`,
+                            transform: isReflected ? 'scaleY(-1)' : 'none',
+                          }}
+                        >
+                          <Lottie
+                            animationData={openingAnimation}
+                            style={{
+                              width: `${animationLayout.tileWidth}px`,
+                              height: `${animationLayout.tileHeight}px`,
+                            }}
+                            loop={false}
+                            autoplay={true}
+                          />
+                        </div>
+                      );
+                    }
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Main Application */}
+            <div
+              className={`h-screen w-screen relative overflow-hidden transition-opacity duration-300 ${
+                showOpeningAnimation && !fadeOut ? 'opacity-0' : 'opacity-100'
+              }`}
+              style={{
+                backgroundColor: '#F8FAFC',
+                backgroundImage: 'url(/gagggle-background-spaced.svg)',
+                backgroundRepeat: 'repeat',
+              }}
+            >
+              {/* Top UI Elements */}
+              <div className='absolute top-4 left-4 w-fit z-20'>
+                <FileName
+                  fileName={fileName}
+                  onFileNameChange={handleFileNameChange}
+                />
+              </div>
+              <div className='absolute top-4 right-4 w-fit z-20'>
+                <ShareBar
                   connectedUsers={connectedUsers}
+                  currentUser={currentUser}
+                  onExport={handleExport}
                 />
               </div>
-            </div>
-          )}
 
-          {/* Always render NodeGraph for panning, even without nodes */}
-          <NodeGraphFlow
-            onNodeGenerate={handleNodeGenerate}
-            isPanMode={isPanMode}
-            connectedUsers={connectedUsers}
-            currentUser={currentUser}
-          />
-
-          {/* Loading state for initial generation */}
-          {isLoading && !hasNodes && (
-            <div className='absolute inset-0 flex items-center justify-center z-10 pointer-events-none'>
-              <div className='flex flex-col items-center justify-center'>
-                <Lottie
-                  animationData={loadingAnimation}
-                  style={{ width: 200, height: 150 }}
-                  loop={true}
+              {/* ToolBar - Bottom center */}
+              <div className='absolute bottom-4 left-1/2 transform -translate-x-1/2 z-20'>
+                <ToolBar 
+                  onPanModeChange={setIsPanMode} 
+                  onNoteToolClick={createEmptyNote}
+                  onCommentToolClick={createComment}
+                  onPromptToolClick={createPromptToolNode}
+                  onMergeToolClick={toggleMergeMode}
+                  isMergeMode={state.isMergeMode}
                 />
-                <p className='mt-4 text-gray-600 text-sm'>
-                  Generating ideas...
-                </p>
               </div>
+              
+              {/* Merge Confirmation - Above toolbar when nodes are selected */}
+              {state.isMergeMode && state.selectedNodeIds && state.selectedNodeIds.size > 0 && (
+                <div className='absolute bottom-20 left-1/2 transform -translate-x-1/2 z-30'>
+                  <MergeConfirmation
+                    selectedCount={state.selectedNodeIds.size}
+                    onMerge={mergeSelectedNodes}
+                    onCancel={() => {
+                      clearMergeSelection();
+                      toggleMergeMode();
+                    }}
+                  />
+                </div>
+              )}
+
+              {/* Initial Centered Prompting Box */}
+              {!hasNodes && (
+                <div className='absolute inset-0 flex items-center justify-center z-10 pointer-events-none'>
+                  <div className='w-full max-w-2xl px-4 pointer-events-auto'>
+                    <PromptingBox
+                      onSubmit={(data) =>
+                        handlePromptSubmit(
+                          data,
+                          emitIdeaGenerationStart,
+                          emitIdeaGenerationComplete,
+                          emitIdeaGenerationError
+                        )
+                      }
+                      isLoading={isLoading}
+                      typingUsers={typingUsers}
+                      currentUserId={currentUser.userId}
+                      onTyping={emitTyping}
+                      onStopTyping={stopTyping}
+                      connectedUsers={connectedUsers}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Always render NodeGraph for panning, even without nodes */}
+              <NodeGraphFlow
+                onNodeGenerate={handleNodeGenerate}
+                isPanMode={isPanMode}
+                connectedUsers={connectedUsers}
+                currentUser={currentUser}
+              />
+
+              {/* Loading state for initial generation */}
+              {isLoading && !hasNodes && (
+                <div className='absolute inset-0 flex items-center justify-center z-10 pointer-events-none'>
+                  <div className='flex flex-col items-center justify-center'>
+                    <Lottie
+                      animationData={loadingAnimation}
+                      style={{ width: 200, height: 150 }}
+                      loop={true}
+                    />
+                    <p className='mt-4 text-gray-600 text-sm'>
+                      Generating ideas...
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
-          )}
-        </div>
+          </>
         );
       }}
     </CursorSharing>
