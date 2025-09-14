@@ -30,6 +30,7 @@ export default function NodeGraph({
   const handleWheel = useCallback((e: WheelEvent) => {
     e.preventDefault();
 
+
     // Always zoom with scroll, no modifier needed - reduced sensitivity
     const zoomFactor = e.deltaY > 0 ? 0.95 : 1.05; // Much gentler zoom changes
     setZoom(prevZoom => Math.min(Math.max(prevZoom * zoomFactor, 0.01), 10)); // Much lower zoom out limit (0.01 = 1%)
@@ -66,8 +67,11 @@ export default function NodeGraph({
         x: panStart.x + deltaX,
         y: panStart.y + deltaY
       });
+      
+      // Update arrows after pan
+      updateXarrow();
     }
-  }, [isDragging, dragStart, panStart]);
+  }, [isDragging, dragStart, panStart, updateXarrow]);
 
   // Global mouse up handler
   const handleGlobalMouseUp = useCallback(() => {
@@ -226,12 +230,15 @@ export default function NodeGraph({
                     key={`arrow-${parentIndex}-${childIndex}-${parentNode.id}-${childId}`}
                     start={parentNode.id}
                     end={childId}
-                    color="#64748b"
-                    strokeWidth={2}
+                    color="#94a3b8"
+                    strokeWidth={1.5}
                     path="smooth"
-                    curveness={0.6}
+                    curveness={0.4}
+                    startAnchor="bottom"
+                    endAnchor="top"
                     headShape="arrow1"
-                    headSize={4}
+                    headSize={3}
+                    dashness={false}
                   />
                 ))
               )}
