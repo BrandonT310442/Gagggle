@@ -243,8 +243,15 @@ export default function PromptingBox({
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-      handleSubmit();
+    if (e.key === 'Enter') {
+      if (e.shiftKey || e.metaKey || e.ctrlKey) {
+        // Allow newline for Shift+Enter or Cmd/Ctrl+Enter
+        return;
+      } else {
+        // Submit on plain Enter
+        e.preventDefault();
+        handleSubmit();
+      }
     }
   };
 
