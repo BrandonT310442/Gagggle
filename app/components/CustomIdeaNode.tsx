@@ -365,12 +365,6 @@ export default function CustomIdeaNode({ data, selected, draggable }: NodeProps)
         `}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
-        onClick={(e) => {
-          if (isMergeMode && onToggleSelection) {
-            e.stopPropagation();
-            onToggleSelection(node.id);
-          }
-        }}
         style={{
           width: isComment ? '26rem' : '28rem',
           maxWidth: isComment ? '30rem' : '32rem',

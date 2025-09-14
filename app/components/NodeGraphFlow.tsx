@@ -51,6 +51,7 @@ export default function NodeGraphFlow({
     createChildPrompt, 
     addPromptNode,
     toggleNodeSelection,
+    toggleMergeMode,
     isLoading, 
     error 
   } = useIdeaGraph();
@@ -238,10 +239,14 @@ export default function NodeGraphFlow({
 
   // Handle node selection
   const onNodeClick = useCallback((event: React.MouseEvent, node: Node) => {
-    if (node.data?.onSelect) {
+    // In merge mode, handle toggling selection
+    if (state.isMergeMode && node.data?.onToggleSelection) {
+      event.stopPropagation();
+      node.data.onToggleSelection(node.id);
+    } else if (node.data?.onSelect) {
       node.data.onSelect();
     }
-  }, []);
+  }, [state.isMergeMode]);
 
   // Handle node drag stop to persist position
   const onNodeDragStop = useCallback((event: React.MouseEvent, node: Node) => {
@@ -281,6 +286,7 @@ export default function NodeGraphFlow({
         onEdgesChange={onEdgesChange}
         onNodeClick={onNodeClick}
         onNodeDragStop={onNodeDragStop}
+        onPaneClick={state.isMergeMode ? toggleMergeMode : undefined}
         nodeTypes={nodeTypes}
         nodesDraggable={!state.isMergeMode}
         connectionMode={ConnectionMode.Loose}
