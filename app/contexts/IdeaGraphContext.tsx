@@ -1119,6 +1119,26 @@ export function IdeaGraphProvider({ children }: Readonly<{ children: ReactNode }
         model: 'llama-3.3-70b-versatile',
       };
 
+      // Helper function to get model label (matching PromptingBox pattern)
+      const getModelLabel = (model: string) => {
+        switch (model) {
+          case 'llama-3.1-8b-instant':
+            return 'Llama 3.1 8B Instant';
+          case 'llama-3.3-70b-versatile':
+            return 'Llama 3.3 70B';
+          case 'openai/gpt-oss-120b':
+            return 'GPT OSS 120B';
+          case 'openai/gpt-oss-20b':
+            return 'GPT OSS 20B';
+          case 'command-r':
+            return 'Command R';
+          case 'command-r-plus':
+            return 'Command R+';
+          default:
+            return 'Llama 3.3 70B'; // Default fallback
+        }
+      };
+
       const mergeResponse = await mergeNodes({
         nodes: nodesToMerge.map(node => ({
           id: node.id,
@@ -1148,7 +1168,7 @@ export function IdeaGraphProvider({ children }: Readonly<{ children: ReactNode }
               // Add model info from the merge request for proper icon display
               modelProvider: modelConfig.provider,
               modelName: modelConfig.model,
-              modelLabel: `${modelConfig.provider === 'groq' ? 'Groq' : modelConfig.provider} ${modelConfig.model === 'llama-3.3-70b-versatile' ? 'Llama 3.3 70B' : modelConfig.model}`,
+              modelLabel: getModelLabel(modelConfig.model),
             };
             newNodes.set(mergedNode.id, placeholderNode);
           }
