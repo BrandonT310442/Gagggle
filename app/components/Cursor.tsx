@@ -9,7 +9,7 @@ interface CursorProps {
 export default function Cursor({ x, y, color, userId, isOwn = false }: CursorProps) {
   return (
     <div
-      className="absolute pointer-events-none z-20 transform -translate-x-1 -translate-y-1"
+      className="absolute pointer-events-none z-30 transform -translate-x-1 -translate-y-1"
       style={{
         left: x,
         top: y,

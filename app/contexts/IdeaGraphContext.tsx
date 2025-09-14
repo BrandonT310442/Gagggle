@@ -8,6 +8,8 @@ import { ideaGenerationService } from '../services/ideaGeneration';
 interface IdeaGraphContextType {
   state: IdeaGraphState;
   generateIdeas: (request: Omit<GenerateIdeasRequest, 'parentNode'> & { parentNodeId?: string }) => Promise<void>;
+  createEmptyNote: () => void;
+  updateNodeContent: (nodeId: string, content: string) => void;
   selectNode: (nodeId: string | undefined) => void;
   clearGraph: () => void;
   isLoading: boolean;
@@ -57,11 +59,9 @@ export function IdeaGraphProvider({ children }: Readonly<{ children: ReactNode }
           }
         });
 
-        const positionedNodes = calculateNodePositions(newNodes, newRootNodes);
-
         return {
           ...prevState,
-          nodes: positionedNodes,
+          nodes: newNodes,
           rootNodes: newRootNodes,
         };
       });
@@ -80,6 +80,32 @@ export function IdeaGraphProvider({ children }: Readonly<{ children: ReactNode }
       socket.off('sync-graph-state', handleSyncGraphState);
     };
   }, [socket]);
+
+  // Deterministic positioning for manual notes to ensure consistency across collaborators
+  const getNextManualNotePosition = useCallback((existingNodes: Map<string, IdeaNode>) => {
+    // Count existing manual notes to determine position index
+    const manualNotes = Array.from(existingNodes.values())
+      .filter(node => node.metadata?.isManualNote)
+      .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime()); // Sort by creation time for consistency
+
+    const noteIndex = manualNotes.length;
+    
+    // Define a simple grid pattern for manual notes - more predictable
+    const gridCols = 3;
+    const cellWidth = 400;
+    const cellHeight = 250;
+    const startX = 200;
+    const startY = 200;
+    
+    // Calculate position based on index
+    const col = noteIndex % gridCols;
+    const row = Math.floor(noteIndex / gridCols);
+    
+    const x = startX + (col * cellWidth);
+    const y = startY + (row * cellHeight);
+    
+    return { x, y };
+  }, []);
 
   const calculateNodePositions = useCallback((nodes: Map<string, IdeaNode>, rootNodes: string[]) => {
     const updatedNodes = new Map(nodes);
@@ -302,6 +328,94 @@ export function IdeaGraphProvider({ children }: Readonly<{ children: ReactNode }
     }
   }, [state.nodes, calculateNodePositions, socket, userId]);
 
+  const createEmptyNote = useCallback(() => {
+    console.log('[IdeaGraphContext] createEmptyNote called');
+    
+    // Generate unique ID for the new note
+    const noteId = `note-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    
+    // Find the next position in the deterministic grid
+    const position = getNextManualNotePosition(state.nodes);
+    
+    // Create the empty note node
+    const emptyNote: IdeaNode = {
+      id: noteId,
+      content: '', // Empty content for manual editing
+      parentId: undefined, // Manual notes are root-level
+      childIds: [],
+      metadata: {
+        generatedBy: 'user',
+        isManualNote: true,
+        createdAt: new Date().toISOString(),
+      },
+      createdBy: userId || 'unknown',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      position: position,
+    };
+
+    // Add the note to the state
+    setState(prevState => {
+      const newNodes = new Map(prevState.nodes);
+      const newRootNodes = [...prevState.rootNodes];
+
+      newNodes.set(emptyNote.id, emptyNote);
+      newRootNodes.push(emptyNote.id);
+
+      return {
+        ...prevState,
+        nodes: newNodes,
+        rootNodes: newRootNodes,
+        selectedNodeId: emptyNote.id, // Auto-select the new note
+      };
+    });
+
+    // Sync with other users
+    if (socket && userId) {
+      console.log('[IdeaGraphContext] Emitting sync-ideas for new manual note');
+      socket.emit('sync-ideas', {
+        userId,
+        ideas: [emptyNote],
+        parentNodeId: null
+      });
+    }
+  }, [state.nodes, getNextManualNotePosition, socket, userId]);
+
+  const updateNodeContent = useCallback((nodeId: string, content: string) => {
+    console.log('[IdeaGraphContext] updateNodeContent called for node:', nodeId, 'content:', content);
+    
+    setState(prevState => {
+      const newNodes = new Map(prevState.nodes);
+      const node = newNodes.get(nodeId);
+      
+      if (node) {
+        const updatedNode = {
+          ...node,
+          content,
+          updatedAt: new Date(),
+        };
+        newNodes.set(nodeId, updatedNode);
+
+        // Sync with other users
+        if (socket && userId) {
+          console.log('[IdeaGraphContext] Emitting sync-ideas for updated content');
+          socket.emit('sync-ideas', {
+            userId,
+            ideas: [updatedNode],
+            parentNodeId: updatedNode.parentId || null
+          });
+        }
+
+        return {
+          ...prevState,
+          nodes: newNodes,
+        };
+      }
+      
+      return prevState;
+    });
+  }, [socket, userId]);
+
   const selectNode = useCallback((nodeId: string | undefined) => {
     setState(prev => ({
       ...prev,
@@ -322,6 +436,8 @@ export function IdeaGraphProvider({ children }: Readonly<{ children: ReactNode }
     <IdeaGraphContext.Provider value={{
       state,
       generateIdeas,
+      createEmptyNote,
+      updateNodeContent,
       selectNode,
       clearGraph,
       isLoading,
