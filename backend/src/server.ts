@@ -253,7 +253,7 @@ io.on('connection', (socket) => {
     return;
   }
 
-  console.log(`User ${userId} joined room ${roomId}`);
+  console.log(`[Backend] User ${userId} joined room ${roomId}`);
   
   // Join room
   socket.join(roomId as string);
@@ -268,6 +268,7 @@ io.on('connection', (socket) => {
   
   const room = rooms.get(roomId as string)!;
   room.users.add(userId as string);
+  console.log(`[Backend] Room ${roomId} now has ${room.users.size} users:`, Array.from(room.users));
 
   // Send existing cursor positions to the new user
   const existingCursors = Array.from(room.cursors.values());
@@ -288,6 +289,49 @@ io.on('connection', (socket) => {
     
     // Broadcast to all other users in the room
     socket.to(roomId as string).emit('cursor-move', data);
+  });
+
+  // Handle typing events
+  socket.on('user-typing', (data) => {
+    console.log(`User ${userId} is typing in room ${roomId}:`, data.text.substring(0, 30));
+    // Broadcast typing event to all other users in the room
+    socket.to(roomId as string).emit('user-typing', data);
+  });
+
+  socket.on('user-stop-typing', (data) => {
+    console.log(`User ${userId} stopped typing in room ${roomId}`);
+    // Broadcast stop typing event to all other users in the room
+    socket.to(roomId as string).emit('user-stop-typing', data);
+  });
+
+  // Handle idea generation events
+  socket.on('idea-generation-start', (data) => {
+    console.log(`User ${userId} started idea generation in room ${roomId}`);
+    socket.to(roomId as string).emit('idea-generation-start', data);
+  });
+
+  socket.on('idea-generation-complete', (data) => {
+    console.log(`User ${userId} completed idea generation in room ${roomId}`);
+    socket.to(roomId as string).emit('idea-generation-complete', data);
+  });
+
+  socket.on('idea-generation-error', (data) => {
+    console.log(`User ${userId} had idea generation error in room ${roomId}`);
+    socket.to(roomId as string).emit('idea-generation-error', data);
+  });
+
+  // Handle idea synchronization - when ideas are generated, sync them to all users
+  socket.on('sync-ideas', (data) => {
+    console.log(`[Backend] User ${userId} syncing ideas in room ${roomId}:`, data.ideas?.length || 0, 'ideas');
+    console.log(`[Backend] Ideas being synced:`, data.ideas?.map((idea: any) => ({ id: idea.id, content: idea.content?.substring(0, 50) })) || []);
+    console.log(`[Backend] Broadcasting to room ${roomId}, excluding sender ${userId}`);
+    socket.to(roomId as string).emit('sync-ideas', data);
+    console.log(`[Backend] sync-ideas broadcast completed`);
+  });
+
+  socket.on('sync-graph-state', (data) => {
+    console.log(`User ${userId} syncing full graph state in room ${roomId}`);
+    socket.to(roomId as string).emit('sync-graph-state', data);
   });
 
   // Handle disconnection

@@ -1,6 +1,7 @@
 'use client';
 
-import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, ReactNode } from 'react';
+import { Socket } from 'socket.io-client';
 import { IdeaNode, IdeaGraphState, GenerateIdeasRequest } from '../types/idea';
 import { ideaGenerationService } from '../services/ideaGeneration';
 
@@ -11,11 +12,13 @@ interface IdeaGraphContextType {
   clearGraph: () => void;
   isLoading: boolean;
   error: string | null;
+  setSocket: (socket: Socket | null) => void;
+  setUserId: (userId: string) => void;
 }
 
 const IdeaGraphContext = createContext<IdeaGraphContextType | undefined>(undefined);
 
-export function IdeaGraphProvider({ children }: { children: ReactNode }) {
+export function IdeaGraphProvider({ children }: Readonly<{ children: ReactNode }>) {
   const [state, setState] = useState<IdeaGraphState>({
     nodes: new Map(),
     rootNodes: [],
@@ -23,6 +26,60 @@ export function IdeaGraphProvider({ children }: { children: ReactNode }) {
   });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [socket, setSocket] = useState<Socket | null>(null);
+  const [userId, setUserId] = useState<string>('');
+
+  // Set up socket event listeners for idea synchronization
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleSyncIdeas = (data: { userId: string; ideas: any[]; parentNodeId?: string }) => {
+      console.log('[IdeaGraphContext] Received sync-ideas from user:', data.userId, 'ideas:', data.ideas.length);
+      console.log('[IdeaGraphContext] Received ideas:', data.ideas.map(idea => ({ id: idea.id, content: idea.content.substring(0, 50) })));
+      
+      // Update local state with received ideas
+      setState(prevState => {
+        const newNodes = new Map(prevState.nodes);
+        const newRootNodes = [...prevState.rootNodes];
+
+        // Add received ideas to local state
+        data.ideas.forEach(idea => {
+          newNodes.set(idea.id, idea);
+
+          if (!idea.parentId) {
+            newRootNodes.push(idea.id);
+          } else {
+            const parent = newNodes.get(idea.parentId);
+            if (parent) {
+              parent.childIds = [...parent.childIds, idea.id];
+              newNodes.set(parent.id, parent);
+            }
+          }
+        });
+
+        const positionedNodes = calculateNodePositions(newNodes, newRootNodes);
+
+        return {
+          ...prevState,
+          nodes: positionedNodes,
+          rootNodes: newRootNodes,
+        };
+      });
+    };
+
+    const handleSyncGraphState = (data: { userId: string; graphState: any }) => {
+      console.log('IdeaGraphContext: Received sync-graph-state from user:', data.userId);
+      // Graph state sync handler - currently not implemented as we sync individual ideas instead
+    };
+
+    socket.on('sync-ideas', handleSyncIdeas);
+    socket.on('sync-graph-state', handleSyncGraphState);
+
+    return () => {
+      socket.off('sync-ideas', handleSyncIdeas);
+      socket.off('sync-graph-state', handleSyncGraphState);
+    };
+  }, [socket]);
 
   const calculateNodePositions = useCallback((nodes: Map<string, IdeaNode>, rootNodes: string[]) => {
     const updatedNodes = new Map(nodes);
@@ -64,6 +121,8 @@ export function IdeaGraphProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const generateIdeas = useCallback(async (request: Omit<GenerateIdeasRequest, 'parentNode'> & { parentNodeId?: string }) => {
+    console.log('[IdeaGraphContext] generateIdeas called with request:', request);
+    console.log('[IdeaGraphContext] Current socket:', !!socket, 'userId:', userId);
     setIsLoading(true);
     setError(null);
 
@@ -187,6 +246,21 @@ export function IdeaGraphProvider({ children }: { children: ReactNode }) {
             rootNodes: newRootNodes,
           };
         });
+
+        // Emit sync event to other users after successfully adding ideas
+        console.log('[IdeaGraphContext] About to emit sync-ideas. Socket exists:', !!socket, 'UserId exists:', !!userId);
+        if (socket && userId) {
+          console.log('[IdeaGraphContext] Emitting sync-ideas for', response.ideas.length, 'ideas to other users');
+          console.log('[IdeaGraphContext] Ideas being synced:', response.ideas.map(idea => ({ id: idea.id, content: idea.content.substring(0, 50) })));
+          socket.emit('sync-ideas', { 
+            userId, 
+            ideas: response.ideas,
+            parentNodeId: parentNode?.id || null 
+          });
+          console.log('[IdeaGraphContext] sync-ideas event emitted successfully');
+        } else {
+          console.warn('[IdeaGraphContext] Cannot emit sync-ideas - socket:', !!socket, 'userId:', !!userId);
+        }
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to generate ideas';
@@ -226,7 +300,7 @@ export function IdeaGraphProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsLoading(false);
     }
-  }, [state.nodes, calculateNodePositions]);
+  }, [state.nodes, calculateNodePositions, socket, userId]);
 
   const selectNode = useCallback((nodeId: string | undefined) => {
     setState(prev => ({
@@ -252,6 +326,8 @@ export function IdeaGraphProvider({ children }: { children: ReactNode }) {
       clearGraph,
       isLoading,
       error,
+      setSocket,
+      setUserId,
     }}>
       {children}
     </IdeaGraphContext.Provider>
