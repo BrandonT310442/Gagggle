@@ -41,7 +41,7 @@ export default function NodeGraphFlow({
   connectedUsers = [],
   currentUser,
 }: Readonly<NodeGraphFlowProps>) {
-  const { state, selectNode, updateNodePosition, updateNodeContent, removeNode, isLoading, error } = useIdeaGraph();
+  const { state, selectNode, updateNodePosition, updateNodeContent, removeNode, createChildNote, createChildPrompt, addPromptNode, isLoading, error } = useIdeaGraph();
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
 
@@ -69,6 +69,7 @@ export default function NodeGraphFlow({
         data: { 
           node,
           onSelect: () => selectNode(node.id),
+          onGenerateIdeas: onNodeGenerate,
         },
       });
     });
@@ -132,7 +133,8 @@ export default function NodeGraphFlow({
         data: { 
           node,
           onSelect: () => selectNode(node.id),
-          onGenerateChildren: () => onNodeGenerate?.(node.id),
+          onGenerateChildren: () => createChildPrompt(node.id),
+          onAddManualChild: () => createChildNote(node.id),
         },
       });
     });
@@ -158,7 +160,8 @@ export default function NodeGraphFlow({
         data: { 
           node,
           onSelect: () => selectNode(node.id),
-          onGenerateChildren: () => onNodeGenerate?.(node.id),
+          onGenerateChildren: () => createChildPrompt(node.id),
+          onAddManualChild: () => createChildNote(node.id),
         },
       });
     });
@@ -171,6 +174,9 @@ export default function NodeGraphFlow({
         position: node.position || { x: 100, y: 100 },
         data: { 
           node,
+          onSelect: () => selectNode(node.id),
+          onGenerateIdeas: onNodeGenerate,
+          onCreatePromptNode: addPromptNode,
         },
       });
     });

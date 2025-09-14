@@ -230,22 +230,79 @@ export default function CustomPromptToolNode({ data, selected }: NodeProps) {
     const selectedProvider = llmProviders.find(p => p.value === llmProvider);
 
     try {
-      // Generate ideas with prompt node creation at the current tool position
-      await generateIdeas({
-        prompt: prompt.trim(),
-        count: parseInt(ideaCount),
-        modelConfig: {
-          provider: (selectedProvider?.provider || 'groq') as 'groq' | 'cohere' | 'mock',
-          model: selectedProvider?.model,
-          modelLabel: selectedProvider?.label,
-        },
-        createPromptNode: true, // This will create the prompt node at the tool's position
-        position: data.node.position, // Pass the current tool node's position
-      });
+      // If this prompt tool has a parent, we need to create a prompt node manually
+      const parentNodeId = data.node.parentId;
+      
+      if (parentNodeId) {
+        // First, create a prompt node to replace this tool node
+        const promptNodeId = `prompt-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        const promptNode = {
+          id: promptNodeId,
+          content: prompt.trim(),
+          parentId: parentNodeId,
+          childIds: [],
+          metadata: {
+            generatedBy: 'user' as const,
+            isPrompt: true,
+            modelProvider: selectedProvider?.provider,
+            modelName: selectedProvider?.model,
+            modelLabel: selectedProvider?.label,
+            createdAt: new Date().toISOString(),
+          },
+          createdBy: 'user',
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          position: data.node.position,
+        };
+        
+        // Add the prompt node directly to state (this will replace the tool node visually)
+        // We need to access the context to add the node
+        if (data.onCreatePromptNode) {
+          data.onCreatePromptNode(promptNode);
+        }
+        
+        // Include context in the generation prompt
+        const contextPrompt = data.node.metadata?.parentContext 
+          ? `Context from previous idea: "${data.node.metadata.parentContext}"\n\nBased on this context, ${prompt.trim()}`
+          : prompt.trim();
+        
+        // Now generate ideas as children of the prompt node
+        await generateIdeas({
+          prompt: contextPrompt,
+          count: parseInt(ideaCount),
+          modelConfig: {
+            provider: (selectedProvider?.provider || 'groq') as 'groq' | 'cohere' | 'mock',
+            model: selectedProvider?.model,
+            modelLabel: selectedProvider?.label,
+          },
+          createPromptNode: false, // Don't create another prompt node
+          parentNodeId: promptNodeId, // Ideas will be children of the prompt node
+          position: { 
+            x: data.node.position.x,
+            y: data.node.position.y + 200 
+          },
+        });
+      } else {
+        // No parent - standard flow (toolbar usage)
+        await generateIdeas({
+          prompt: prompt.trim(),
+          count: parseInt(ideaCount),
+          modelConfig: {
+            provider: (selectedProvider?.provider || 'groq') as 'groq' | 'cohere' | 'mock',
+            model: selectedProvider?.model,
+            modelLabel: selectedProvider?.label,
+          },
+          createPromptNode: true,
+          position: data.node.position,
+        });
+      }
 
       // Remove this tool node after successful submission
+      // Small delay to ensure the prompt node is fully rendered first
       if (removeNode) {
-        removeNode(data.node.id);
+        setTimeout(() => {
+          removeNode(data.node.id);
+        }, 100);
       }
     } catch (error) {
       console.error('Failed to generate ideas:', error);

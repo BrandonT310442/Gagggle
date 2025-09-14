@@ -16,6 +16,8 @@ interface IdeaGraphContextType {
   createComment: () => void;
   createPromptToolNode: () => void;
   createChildNote: (parentNodeId: string) => void;
+  createChildPrompt: (parentNodeId: string) => void;
+  addPromptNode: (promptNode: IdeaNode) => void;
   removeNode: (nodeId: string) => void;
   updateNodeContent: (nodeId: string, content: string) => void;
   updateNodePosition: (nodeId: string, position: { x: number; y: number }) => void;
@@ -261,7 +263,7 @@ export function IdeaGraphProvider({ children }: Readonly<{ children: ReactNode }
       const promptPlaceholder: IdeaNode = {
         id: promptPlaceholderId,
         content: request.prompt,
-        parentId: undefined,
+        parentId: request.parentNodeId || undefined, // Set parent ID if provided
         childIds: [],
         metadata: {
           isPrompt: true,
@@ -398,7 +400,20 @@ export function IdeaGraphProvider({ children }: Readonly<{ children: ReactNode }
           // Position the prompt node if it exists
           if (promptNode && request.position) {
             promptNode.position = request.position;
+            // Ensure prompt node has correct parent ID if provided
+            if (request.parentNodeId) {
+              promptNode.parentId = request.parentNodeId;
+            }
             newNodes.set(promptNode.id, promptNode);
+            
+            // If prompt has a parent, update parent's childIds
+            if (promptNode.parentId) {
+              const parent = newNodes.get(promptNode.parentId);
+              if (parent && !parent.childIds.includes(promptNode.id)) {
+                parent.childIds = [...parent.childIds, promptNode.id];
+                newNodes.set(parent.id, parent);
+              }
+            }
           }
           
           // Position child idea nodes
@@ -598,6 +613,75 @@ export function IdeaGraphProvider({ children }: Readonly<{ children: ReactNode }
     // Note: Draft nodes are not synced immediately. They will be synced when saved.
   }, [state.nodes, getNextCommentPosition, socket, userId]);
 
+  const createChildPrompt = useCallback((parentNodeId: string) => {
+    console.log('[IdeaGraphContext] createChildPrompt called for parent:', parentNodeId);
+    
+    // Generate unique ID for the new prompt tool
+    const promptToolId = `prompt-tool-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    
+    // Get parent node to calculate position
+    const parentNode = state.nodes.get(parentNodeId);
+    if (!parentNode) {
+      console.error('Parent node not found:', parentNodeId);
+      return;
+    }
+    
+    // Calculate position below parent
+    const position = {
+      x: parentNode.position?.x || 0,
+      y: (parentNode.position?.y || 0) + 200, // Position below parent with gap
+    };
+    
+    // Create the child prompt tool node
+    const childPromptTool: IdeaNode = {
+      id: promptToolId,
+      content: '', // Empty content for prompt input
+      parentId: parentNodeId,
+      childIds: [],
+      metadata: {
+        generatedBy: 'user',
+        isPromptTool: true,
+        parentContext: parentNode.content, // Store parent's content as context
+        createdAt: new Date().toISOString(),
+      },
+      createdBy: userId || 'unknown',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      position: position,
+    };
+
+    // Add the prompt tool to the state
+    setState(prevState => {
+      const newNodes = new Map(prevState.nodes);
+      
+      // Add the new child prompt tool
+      newNodes.set(childPromptTool.id, childPromptTool);
+      
+      // Update parent node's childIds
+      const parent = newNodes.get(parentNodeId);
+      if (parent) {
+        parent.childIds = [...parent.childIds, childPromptTool.id];
+        newNodes.set(parentNodeId, parent);
+      }
+
+      return {
+        ...prevState,
+        nodes: newNodes,
+        selectedNodeId: childPromptTool.id, // Auto-select the new prompt tool
+      };
+    });
+
+    // Sync with other users
+    if (socket && userId) {
+      console.log('[IdeaGraphContext] Emitting sync-ideas for new child prompt tool');
+      socket.emit('sync-ideas', {
+        userId,
+        ideas: [childPromptTool],
+        parentNodeId: parentNodeId
+      });
+    }
+  }, [state.nodes, socket, userId]);
+
   const createChildNote = useCallback((parentNodeId: string) => {
     console.log('[IdeaGraphContext] createChildNote called for parent:', parentNodeId);
     
@@ -626,6 +710,7 @@ export function IdeaGraphProvider({ children }: Readonly<{ children: ReactNode }
       metadata: {
         generatedBy: 'user',
         isManualNote: true,
+        parentContext: parentNode.content, // Store parent's content as context
         createdAt: new Date().toISOString(),
       },
       createdBy: userId || 'unknown',
@@ -718,6 +803,49 @@ export function IdeaGraphProvider({ children }: Readonly<{ children: ReactNode }
       });
     }
   }, [state.nodes, getNextManualNotePosition, socket, userId]);
+
+  const addPromptNode = useCallback((promptNode: IdeaNode) => {
+    console.log('[IdeaGraphContext] addPromptNode called for node:', promptNode.id);
+    
+    setState(prevState => {
+      const newNodes = new Map(prevState.nodes);
+      const newRootNodes = [...prevState.rootNodes];
+      
+      // Add the prompt node
+      newNodes.set(promptNode.id, promptNode);
+      
+      // If it has no parent, add to root nodes
+      if (!promptNode.parentId) {
+        newRootNodes.push(promptNode.id);
+      } else {
+        // Update parent's childIds
+        const parent = newNodes.get(promptNode.parentId);
+        if (parent) {
+          if (!parent.childIds.includes(promptNode.id)) {
+            parent.childIds = [...parent.childIds, promptNode.id];
+            newNodes.set(parent.id, parent);
+          }
+        }
+      }
+      
+      // Sync with other users
+      if (socket && userId) {
+        console.log('[IdeaGraphContext] Emitting sync-ideas for new prompt node');
+        socket.emit('sync-ideas', {
+          userId,
+          ideas: [promptNode],
+          parentNodeId: promptNode.parentId || null
+        });
+      }
+      
+      return {
+        ...prevState,
+        nodes: newNodes,
+        rootNodes: newRootNodes,
+        selectedNodeId: promptNode.id,
+      };
+    });
+  }, [socket, userId]);
 
   const removeNode = useCallback((nodeId: string) => {
     console.log('[IdeaGraphContext] removeNode called for node:', nodeId);
@@ -860,6 +988,8 @@ export function IdeaGraphProvider({ children }: Readonly<{ children: ReactNode }
       createComment,
       createPromptToolNode,
       createChildNote,
+      createChildPrompt,
+      addPromptNode,
       removeNode,
       updateNodeContent,
       updateNodePosition,
