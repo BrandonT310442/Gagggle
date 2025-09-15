@@ -70,7 +70,9 @@ export default function CursorSharing({ children }: Readonly<CursorSharingProps>
   useEffect(() => {
     if (!roomId) return;
 
-    const newSocket = io('http://localhost:3001', {
+    // Use the same host as the current page for socket connection
+    const socketUrl = `${window.location.protocol}//${window.location.hostname}:3001`;
+    const newSocket = io(socketUrl, {
       query: { roomId, userId },
     });
 
